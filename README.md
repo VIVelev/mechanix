@@ -1,0 +1,2 @@
+# mechanix
+Lagrangians in JAX
