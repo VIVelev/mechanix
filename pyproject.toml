@@ -1,0 +1,39 @@
+[project]
+name = "mechanix"
+version = "0.0.1"
+description = "Lagrangians in JAX"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+keywords = []
+authors = [
+  { name = "Victor Velev", email = "vivelev@icloud.com" },
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: Implementation :: CPython",
+]
+dependencies = ["jax", "jaxtyping"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+include = ["mechanix/*"]
+
+[tool.hatch.envs.dev]
+dependencies = [
+  "black",
+  "ruff-lsp",
+  "pyright",
+  "pytest",
+  "jaxlib",
+]
+
+[tool.ruff]
+ignore = ["E722"]
