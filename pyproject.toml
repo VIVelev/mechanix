@@ -38,10 +38,12 @@ dependencies = [
 
 [tool.ruff]
 select = ["E", "F", "I001"]
-ignore = ["F722"]
+ignore = ["F722", "E731"]
+include = ["mechanix", "tests", "examples"]
 
 [tool.ruff.isort]
 combine-as-imports = true
 
 [tool.pyright]
 useLibraryCodeForTypes = false
+include = ["mechanix", "tests", "examples"]

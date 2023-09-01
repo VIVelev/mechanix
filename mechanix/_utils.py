@@ -188,6 +188,23 @@ def F2C(F: LocalTupleFunction) -> LocalTupleFunction:
     return C
 
 
+def Dt(F: LocalTupleFunction) -> LocalTupleFunction:
+    """Return the Total Time Derivatice of F - a local-tuple function.
+
+    DtF o Gamma[q] = D(F o Gamma[q])
+    """
+
+    def DtF(local: LocalTuple) -> Array | Scalar:
+        n = len(local)
+
+        def DF_on_path(q: Path) -> Callable[[Scalar], Array | Scalar]:
+            return D(compose(F, Gamma(q, n)))
+
+        return Gamma_bar(DF_on_path)(local)
+
+    return DtF
+
+
 def compose(*fs):
     def _compose2(f, g):
         return lambda *args, **kwargs: f(g(*args, **kwargs))
@@ -195,19 +212,6 @@ def compose(*fs):
     if len(fs) == 1:
         return fs[0]
     return reduce(_compose2, fs)
-
-
-def Lagrange_equations(lagrangian: LocalTupleFunction) -> PathFunction:
-    def f(q: Path) -> Callable[[Scalar], Float[Array, " n"]]:
-        Dp2L = D(compose(partial(2, lagrangian), Gamma(q)))
-        p1L = compose(partial(1, lagrangian), Gamma(q))
-
-        def g(t: Scalar) -> Float[Array, " n"]:
-            return Dp2L(t) - p1L(t)
-
-        return g
-
-    return f
 
 
 def make_lagrangian(t: LocalTupleFunction, v: LocalTupleFunction) -> LocalTupleFunction:
@@ -287,7 +291,7 @@ def Noether_integral(
     return lambda local: P(local) @ jnp.stack(DF_tilde(local)).T
 
 
-def robust_norm(x, p=2):
+def robust_norm(x: Float[Array, " n"], p=2) -> Scalar:
     """Taken from:
     https://timvieira.github.io/blog/post/2014/11/10/numerically-stable-p-norms/
     """
