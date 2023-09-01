@@ -42,3 +42,6 @@ ignore = ["F722"]
 
 [tool.ruff.isort]
 combine-as-imports = true
+
+[tool.pyright]
+useLibraryCodeForTypes = false

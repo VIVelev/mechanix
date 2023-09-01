@@ -1,5 +1,5 @@
 default_language_version:
-    python: python3.11
+    python: python3.10
 
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
@@ -15,4 +15,4 @@ repos:
     rev: v1.1.311
     hooks:
     - id: pyright
-      # additional_dependencies: ["jax", "equinox", "pytest"]
+      additional_dependencies: ["jax", "jaxtyping", "matplotlib"]

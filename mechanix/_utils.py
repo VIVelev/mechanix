@@ -21,8 +21,7 @@ def _namedtuple(typename: str, *field_names: str) -> type[LocalTuple]:
 
 
 def Local(*args: Scalar | Float[Array, " n"]) -> LocalTuple:
-    """Represents the state of a system at a given time.
-    """
+    """Represents the state of a system at a given time."""
     _field_names = ["t", "pos", "v", "acc", "jerk", "snap", "crackle", "pop"]
     return _namedtuple("Local", *_field_names[: len(args)])(*args)
 
@@ -155,8 +154,7 @@ D = _operator("D", lambda f: jax.jacfwd(f))
 
 
 def Gamma_bar(f_bar: PathFunction) -> LocalTupleFunction:
-    """Takes a path function and returns the corresponding local-tuple function.
-    """
+    """Takes a path function and returns the corresponding local-tuple function."""
     return lambda local: f_bar(osculating_path(local))(local.t)
 
 
@@ -270,7 +268,9 @@ def _jacfwd_parametric(fun, *args, **kwargs):
     return df
 
 
-def Noether_integral(L: LocalTupleFunction, F_tilde: Callable[..., LocalTupleFunction]) -> LocalTupleFunction:
+def Noether_integral(
+    L: LocalTupleFunction, F_tilde: Callable[..., LocalTupleFunction]
+) -> LocalTupleFunction:
     """Noether Theorem Support
 
     F-tilde is a parametric coordinate transformation that given parameters takes

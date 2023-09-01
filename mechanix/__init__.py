@@ -8,4 +8,6 @@ from ._utils import (
     Ry as Ry,
     Rz as Rz,
     compose as compose,
+    make_lagrangian as make_lagrangian,
+    robust_norm as robust_norm,
 )
