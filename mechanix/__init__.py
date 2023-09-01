@@ -9,5 +9,7 @@ from ._utils import (
     Rz as Rz,
     compose as compose,
     make_lagrangian as make_lagrangian,
+    p2r as p2r,
+    r2p as r2p,
     robust_norm as robust_norm,
 )
