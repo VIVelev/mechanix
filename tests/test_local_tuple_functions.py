@@ -1,7 +1,7 @@
 import jax
 import jax.numpy as jnp
 
-from mechanix import Dt, Local
+from mechanix import Dt, Euler_lagrange_operator, Local
 
 
 def test_total_time_derivative():
@@ -27,3 +27,21 @@ def test_total_time_derivative():
         lambda x, y: x and y,
         jax.tree_map(jnp.allclose, d, d_expected_false),
     )
+
+
+def test_euler_lagrange_operator():
+    def L_harmonic(local):
+        # m = 1, k = 1
+        _, q, v, _ = local
+        return 0.5 * v @ v - 0.5 * q @ q
+
+    E = Euler_lagrange_operator(L_harmonic)
+    t = jnp.array(0.0)
+    q = jnp.array([5.0])
+    v = jnp.array([3.0])
+    a = jnp.array([1.0])
+    local = Local(t, q, v, a)
+
+    d = E(local)
+    d_expected = a + q  # ma = -kx
+    assert jnp.allclose(d, d_expected)

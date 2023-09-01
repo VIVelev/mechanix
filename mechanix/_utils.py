@@ -205,6 +205,13 @@ def Dt(F: LocalTupleFunction) -> LocalTupleFunction:
     return DtF
 
 
+def Euler_lagrange_operator(L: LocalTupleFunction) -> LocalTupleFunction:
+    """Returns a local-tuple function that computes the Euler-lagrange equations
+    as a moment.
+    """
+    return lambda local: Dt(partial(2, L))(local) - partial(1, L)(local)
+
+
 def compose(*fs):
     def _compose2(f, g):
         return lambda *args, **kwargs: f(g(*args, **kwargs))
