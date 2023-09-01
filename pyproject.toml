@@ -17,7 +17,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: Implementation :: CPython",
 ]
-dependencies = ["jax", "jaxtyping"]
+dependencies = ["jax", "jaxtyping", "matplotlib"]
 
 [build-system]
 requires = ["hatchling"]
@@ -28,9 +28,17 @@ include = ["mechanix/*"]
 
 [tool.hatch.envs.dev]
 dependencies = [
+  "pre-commit",
   "black",
   "ruff-lsp",
   "pyright",
   "pytest",
   "jaxlib",
 ]
+
+[tool.ruff]
+select = ["E", "F", "I001"]
+ignore = ["F722"]
+
+[tool.ruff.isort]
+combine-as-imports = true
