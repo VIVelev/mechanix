@@ -1,3 +1,4 @@
+import pickle
 from functools import partial
 from itertools import cycle
 
@@ -47,7 +48,7 @@ g = 9.81  # m/s^2
 
 # Time parameters
 t0 = 0.0  # s
-t1 = 10.0  # s
+t1 = 100.0  # s
 dt = 0.1  # s
 ts = jnp.arange(t0, t1, dt)
 
@@ -112,7 +113,7 @@ def loader(x, y, batch_size, *, key, shuffle=False):
 
 
 # The model
-nhidden = 16
+nhidden = 64
 nlayers = 2
 layers = []
 
@@ -232,10 +233,10 @@ def train(
         opt_state, loss_value = step(i, opt_state, x, y)
         if i % log_every == 0:
             nn_params = get_params(opt_state)
-            np.save("nn_params.npy", np.asarray(nn_params))
+            pickle.dump(nn_params, open("nn_params.pkl", "wb"))
             key, subkey = jax.random.split(key)
             testset = loader(X_test, Y_test, batch_size, key=subkey)
-            test_loss = jnp.mean([loss(nn_params, x, y) for x, y in testset])
+            test_loss = np.mean([loss(nn_params, x, y) for x, y in testset])
             pbar.set_description(f"loss: {loss_value:.4f}, test_loss: {test_loss:.4f}")
             wandb.log({"loss": loss_value, "test_loss": test_loss})
 
