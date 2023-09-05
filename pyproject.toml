@@ -17,7 +17,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: Implementation :: CPython",
 ]
-dependencies = ["jax", "jaxtyping", "matplotlib"]
+dependencies = ["jax", "jaxtyping"]
 
 [build-system]
 requires = ["hatchling"]
@@ -28,12 +28,16 @@ include = ["mechanix/*"]
 
 [tool.hatch.envs.dev]
 dependencies = [
+  "jaxlib",
+  "matplotlib",
+  "tqdm",
+  "wandb",
+
   "pre-commit",
   "black",
   "ruff-lsp",
   "pyright",
   "pytest",
-  "jaxlib",
 ]
 
 [tool.ruff]
@@ -42,8 +46,9 @@ ignore = ["F722", "E731"]
 include = ["mechanix", "tests", "examples"]
 
 [tool.ruff.isort]
+known-third-party = ["jax", "wandb"]
 combine-as-imports = true
 
 [tool.pyright]
-useLibraryCodeForTypes = false
+reportGeneralTypeIssues = false
 include = ["mechanix", "tests", "examples"]

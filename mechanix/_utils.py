@@ -1,7 +1,6 @@
 from collections import namedtuple
-from collections.abc import Callable
 from functools import cache, reduce
-from typing import Any
+from typing import Any, Callable
 
 import jax
 import jax.numpy as jnp
@@ -23,7 +22,7 @@ def _namedtuple(typename: str, *field_names: str) -> type[LocalTuple]:
 def Local(*args: Scalar | Float[Array, " n"]) -> LocalTuple:
     """Represents the state of a system at a given time."""
     _field_names = ["t", "pos", "v", "acc", "jerk", "snap", "crackle", "pop"]
-    return _namedtuple("Local", *_field_names[: len(args)])(*args)
+    return _namedtuple("LocalTuple", *_field_names[: len(args)])(*args)
 
 
 def partial(i: int, f: LocalTupleFunction) -> LocalTupleFunction:
@@ -40,13 +39,13 @@ def partial(i: int, f: LocalTupleFunction) -> LocalTupleFunction:
         tangent_in = jax.tree_map(
             lambda x: jnp.zeros_like(x)[None, ...].repeat(d, 0), local
         )
-        field_name = tangent_in._fields[i]
+        field_name = local._fields[i]
         field_value = jnp.eye(d) if field_name != "t" else jnp.array([1.0])
         tangent_in = tangent_in._replace(**{field_name: field_value})
         # Perform a Vector-Jacobian product
         vmap_jvp = jax.vmap(jax.jvp, in_axes=(None, None, 0))
         _, tangent_out = vmap_jvp(f, (local,), (tangent_in,))
-        return tangent_out.T.squeeze()
+        return tangent_out.T if field_name != "t" else tangent_out.squeeze()
 
     return p
 
