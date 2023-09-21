@@ -17,7 +17,7 @@ jax.config.update("jax_enable_x64", True)
 
 
 def L0(m, V):
-    """Langrangiang for the thord particle
+    """Langrangiang for the third particle
     of mass `m` moving in a field derived from a
     time-varying gravitationa potential `V`.
     """

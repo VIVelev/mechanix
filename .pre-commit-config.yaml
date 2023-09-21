@@ -15,4 +15,4 @@ repos:
     rev: v1.1.311
     hooks:
     - id: pyright
-      additional_dependencies: ["jax", "jaxtyping", "matplotlib"]
+      additional_dependencies: ["jax", "jaxtyping", "matplotlib", "streamlit"]

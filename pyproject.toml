@@ -31,6 +31,8 @@ dependencies = [
   "jaxlib",
   "matplotlib",
   "tqdm",
+  "watchdog",
+  "streamlit",
   "wandb",
 
   "pre-commit",

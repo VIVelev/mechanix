@@ -99,23 +99,7 @@ state_derivative = jax.jit(Lagrangian_to_state_derivative(L_toroidal))
 # using the 4th order Runge-Kutta method. The returned X and V values
 # have a the shape (time, bodies, dimensions)
 
-
-def clip_by_norm(x, max_norm):
-    norm = jnp.linalg.norm(x, axis=-1, keepdims=True)
-    return jnp.where(norm > max_norm, (x / norm) * max_norm, x)
-
-
-def boundary_conditions(y, max_speed=0.1):
-    # pos = jnp.mod(y.pos, 2 * np.pi)
-    v = clip_by_norm(y.v.reshape(N_BODIES, -1), max_speed).flatten()
-    return Local(y.t, y.pos, v)
-
-
 local = odeint(lambda y, t: state_derivative(y), init_local, Ts)
-
-print("isnan:", jnp.any(jnp.isnan(local.pos)))
-print("isinf:", jnp.any(jnp.isinf(local.pos)))
-
 
 X = jax.vmap(toroidal_to_cartesian(TORUS_R, TORUS_r))(local)
 X = np.asarray(X).reshape(-1, N_BODIES, 3)
