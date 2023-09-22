@@ -7,9 +7,8 @@ from mechanix import Lagrangian_to_energy, Lagrangian_to_state_derivative, Local
 
 
 def L0(m, V):
-    """Langrangiang for the thord particle
-    of mass `m` moving in a field derived from a
-    time-varying gravitationa potential `V`.
+    """Langrangiang for the third particle of mass `m` moving in a
+    field derived from a time-varying gravitationa potential `V`.
     """
 
     def f(local):
@@ -19,6 +18,7 @@ def L0(m, V):
 
 
 def get_Omega(a, GM0, GM1):
+    """Get the rate at which the two bodies orbit their center of mass."""
     # From Kepler's third law:
     # Omega^2 * a^3 = G(M0 + M1)
     # Omega = sqrt(G(M0 + M1) / a^3)
@@ -27,23 +27,32 @@ def get_Omega(a, GM0, GM1):
 
 
 def get_a0_a1(a, GM0, GM1):
+    """Get the distance b/w each body and the center of mass."""
     a0 = GM1 / (GM0 + GM1) * a
     a1 = GM0 / (GM0 + GM1) * a
     return a0, a1
 
 
 def V(a, GM0, GM1, m):
+    """Time-varying gravitational potential for a third body of mass `m`
+    orbiting two bodies of mass `GM0` and `GM1` with distance b/w them `a`.
+    """
     Omega = get_Omega(a, GM0, GM1)
     a0, a1 = get_a0_a1(a, GM0, GM1)
 
     def f(t, xy):
         x, y = xy
+        # Get the position of the two bodies at time `t`
         x0 = -a0 * jnp.cos(Omega * t)
         y0 = -a0 * jnp.sin(Omega * t)
         x1 = a1 * jnp.cos(Omega * t)
         y1 = a1 * jnp.sin(Omega * t)
+
+        # Calculate the distance b/w the third body and the two bodies
         r0 = jnp.sqrt((x - x0) ** 2 + (y - y0) ** 2)
         r1 = jnp.sqrt((x - x1) ** 2 + (y - y1) ** 2)
+
+        # Calculate the potential
         return -GM0 * m / r0 - GM1 * m / r1
 
     return f
