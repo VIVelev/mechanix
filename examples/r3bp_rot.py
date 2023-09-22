@@ -159,7 +159,7 @@ ts = jnp.zeros((sample_size, sample_size))
 states = Local(ts, xys, vs)
 zs = np.array(jax.vmap(energy)(states))
 
-
+# Now get the zero-velocity curves
 zs[zs < J] = np.nan
 ax[0].contourf(xs, ys, zs, cmap="Greys")
 
