@@ -15,11 +15,11 @@ PathFunction = Callable[[Path], Callable[[Scalar], Any]]
 
 
 @cache
-def _namedtuple(typename: str, *field_names: str) -> type[LocalTuple]:
+def _namedtuple(typename, *field_names):
     return namedtuple(typename, field_names)
 
 
-def Local(*args: Scalar | Float[Array, " n"]) -> LocalTuple:
+def Local(*args):
     """Represents the state of a system at a given time."""
     _field_names = ["t", "pos", "v", "acc", "jerk", "snap", "crackle", "pop"]
     return _namedtuple("LocalTuple", *_field_names[: len(args)])(*args)
@@ -31,7 +31,7 @@ def partial(i: int, f: LocalTupleFunction) -> LocalTupleFunction:
     """
 
     # TODO: Maybe this could be cleaned up?
-    def p(local: LocalTuple) -> LocalTuple:
+    def p(local):
         # Get the number of elements in the ith field
         d = np.prod(local[i].shape, dtype=int)
         # Produce a directional vector to the input in
@@ -50,55 +50,55 @@ def partial(i: int, f: LocalTupleFunction) -> LocalTupleFunction:
     return p
 
 
-def p2r(local: LocalTuple) -> Float[Array, " n"]:
+def p2r(local):
     """Converts polar coordinates to rectangular coordinates."""
     r, theta = local.pos
     return r * jnp.array([jnp.cos(theta), jnp.sin(theta)])
 
 
-def r2p(local: LocalTuple) -> Float[Array, " n"]:
+def r2p(local):
     """Converts rectangular coordinates to polar coordinates."""
     x, y = local.pos
     return jnp.array([jnp.sqrt(x**2 + y**2), jnp.arctan2(y, x)])
 
 
-def Rx(theta: Scalar) -> Callable[[Float[Array, " n"]], Float[Array, " n"]]:
+def Rx(theta) -> Callable[[Float[Array, " n"]], Float[Array, " n"]]:
     """Rotation around the x-axis."""
     ct = jnp.cos(theta)
     st = jnp.sin(theta)
 
-    def f(q: Float[Array, " n"]) -> Float[Array, " n"]:
+    def f(q):
         x, y, z = q
         return jnp.array([x, ct * y - st * z, st * y + ct * z])
 
     return f
 
 
-def Ry(theta: Scalar) -> Callable[[Float[Array, " n"]], Float[Array, " n"]]:
+def Ry(theta) -> Callable[[Float[Array, " n"]], Float[Array, " n"]]:
     """Rotation around the y-axis."""
     ct = jnp.cos(theta)
     st = jnp.sin(theta)
 
-    def f(q: Float[Array, " n"]) -> Float[Array, " n"]:
+    def f(q):
         x, y, z = q
         return jnp.array([ct * x + st * z, y, -st * x + ct * z])
 
     return f
 
 
-def Rz(theta: Scalar) -> Callable[[Float[Array, " n"]], Float[Array, " n"]]:
+def Rz(theta) -> Callable[[Float[Array, " n"]], Float[Array, " n"]]:
     """Rotation around the z-axis."""
     ct = jnp.cos(theta)
     st = jnp.sin(theta)
 
-    def f(q: Float[Array, " n"]) -> Float[Array, " n"]:
+    def f(q):
         x, y, z = q
         return jnp.array([ct * x - st * y, st * x + ct * y, z])
 
     return f
 
 
-def factorial(n: Scalar) -> Scalar:
+def factorial(n):
     return jax.lax.while_loop(
         lambda i: i[0] <= n,
         lambda i: (i[0] + 1, i[1] * i[0]),
@@ -120,7 +120,7 @@ def osculating_path(local: LocalTuple) -> Path:
     t, q, *dqs = local
     dqs = jnp.stack(dqs)
 
-    def o(t_prime: Scalar) -> Float[Array, " n"]:
+    def o(t_prime):
         dt = t_prime - t
 
         def body(carry, curr):
@@ -172,10 +172,10 @@ def F2C(F: LocalTupleFunction) -> LocalTupleFunction:
     return the corresponding state transformation (`C`).
     """
 
-    def C(local: LocalTuple) -> LocalTuple:
+    def C(local):
         n = len(local)
 
-        def f_bar(q_prime: Path) -> Callable[[Scalar], LocalTuple]:
+        def f_bar(q_prime):
             # You enter q' coordinates into the transformation
             q = compose(F, Gamma(q_prime))
             # You differentiate
@@ -193,10 +193,10 @@ def Dt(F: LocalTupleFunction) -> LocalTupleFunction:
     DtF o Gamma[q] = D(F o Gamma[q])
     """
 
-    def DtF(local: LocalTuple) -> Array | Scalar:
+    def DtF(local):
         n = len(local)
 
-        def DF_on_path(q: Path) -> Callable[[Scalar], Array | Scalar]:
+        def DF_on_path(q):
             return D(compose(F, Gamma(q, n)))
 
         return Gamma_bar(DF_on_path)(local)
@@ -236,11 +236,10 @@ def Lagrangian_to_acceleration(L: LocalTupleFunction) -> LocalTupleFunction:
     p12L = partial(1, p2L)
     p22L = partial(2, p2L)
 
-    def f(local: LocalTuple) -> LocalTuple:
+    def f(local):
         a = p22L(local)
         b = p1L(local) - p12L(local) @ local.v - p02L(local)
-        # NOTE: Figure out what to do when a is singular.
-        return jnp.linalg.solve(a, b)
+        return jnp.linalg.pinv(a) @ b
 
     return f
 
@@ -248,7 +247,7 @@ def Lagrangian_to_acceleration(L: LocalTupleFunction) -> LocalTupleFunction:
 def Lagrangian_to_state_derivative(L: LocalTupleFunction) -> LocalTupleFunction:
     accel = Lagrangian_to_acceleration(L)
 
-    def f(local: LocalTuple) -> LocalTuple:
+    def f(local):
         return Local(
             jnp.ones_like(local.t),
             local.v,
@@ -297,7 +296,7 @@ def Noether_integral(
     return lambda local: P(local) @ jnp.stack(DF_tilde(local)).T
 
 
-def robust_norm(x: Float[Array, " n"], p=2) -> Scalar:
+def robust_norm(x, p=2):
     """Taken from:
     https://timvieira.github.io/blog/post/2014/11/10/numerically-stable-p-norms/
     """
