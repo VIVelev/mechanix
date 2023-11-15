@@ -98,14 +98,6 @@ def Rz(theta) -> Callable[[Float[Array, " n"]], Float[Array, " n"]]:
     return f
 
 
-def factorial(n):
-    return jax.lax.while_loop(
-        lambda i: i[0] <= n,
-        lambda i: (i[0] + 1, i[1] * i[0]),
-        jnp.array([1.0, 1.0]),
-    )[1]
-
-
 def osculating_path(local: LocalTuple) -> Path:
     """Generates an osculating path with the given local-tuple components.
 
