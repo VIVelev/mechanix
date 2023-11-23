@@ -3,61 +3,17 @@ import jax.numpy as jnp
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
-import streamlit as st
-import streamlit.components.v1 as components
 from jax.experimental.ode import odeint
 
 from mechanix import F2C, Lagrangian_to_state_derivative, Local, compose
 
-"""I will start with a simple pendulum example to
-get us familiar with the library.
-"""
-
-"""Since its easier to calculate the Potential and Kinetic energy
-in rectangular coordinates, I will define the Lagrangian in terms
-of rectangular coordinates.
-"""
-
-st.latex(r"L = T - V = \frac{1}{2} m v^2 - m g y")
-
-r"""At any given time, the state of the system is given by the local
-tuple $(t, q, v)$. Where q is the generalized coordinates and $v = \frac{dq}{dt}$.
-Therefore, the lagrangian is a *Local Tuple Function*."""
-
-"""We define the Kinetic energy as"""
-
-st.code(
-    """
-def T(m):
-    def f(local):
-        _, _, v = local
-        return 0.5 * m * v @ v
-
-    return f
-"""
-)
-
 
 def T(m):
     def f(local):
         _, _, v = local
-        return 0.5 * m * v @ v
+        return 0.5 * m * v.T @ v
 
     return f
-
-
-"""And the Potential"""
-
-st.code(
-    """
-def V(m, g):
-    def f(local):
-        _, [_, y], _ = local
-        return m * g * y
-
-    return f
-"""
-)
 
 
 def V(m, g):
@@ -68,63 +24,22 @@ def V(m, g):
     return f
 
 
-"""Both take as input some parameters and return a Local Tuple Function.
-Therefore the Lagrangian can easily be defined as"""
-
-st.code("L_rectangular = lambda local: T(m)(local) - V(m, g)(local)")
 L_rectangular = lambda local: T(m)(local) - V(m, g)(local)
 
 
-r"""Now, I actually want to define and monitor the position of the pendulum
-in terms of the angle $\theta$, therefore I will define a *Coordinate Transformation*
-('F') from the pendulum coordinates ($\theta$) to rectangular coordinates.
-"""
-
-st.code(
-    """
-# Convert pendulum coordinates (theta) to rectangular coordinates (x, y)
-def pendulum2rect(local):
-    theta = local.pos[0]
-    return l * jnp.array([jnp.cos(theta), jnp.sin(theta)])
-"""
-)
-
-
 # Convert pendulum coordinates (theta) to rectangular coordinates (x, y)
 def pendulum2rect(local):
     theta = local.pos[0]
     return l * jnp.array([jnp.cos(theta), jnp.sin(theta)])
 
 
-"""But wait, I defined my Lagrangian in terms of rectangular coordinates,
-now what? No worries, we just need to figure out the corresponding *Local Tuple
-Transformation* ('C'). Fortunately, that can easily be done with the `F2C` function."""
-
-st.code("local_tuple_transformation = F2C(pendulum2rect)")
 local_tuple_transformation = F2C(pendulum2rect)
-
-"""Now our final Lagrangian will be the composition of the two."""
-
-st.code(
-    """
 L_polar = compose(
     L_rectangular,
     local_tuple_transformation,
 )
-"""
-)
-L_polar = compose(
-    L_rectangular,
-    local_tuple_transformation,
-)
-
-
-r"""Now, from this Lagrangian we can take the state (local tuple) derivative:
-$dstate = (\frac{dt}{dt}, \frac{dq}{dt}, \frac{dv}{dt})$"""
-st.code("dstate = Lagrangian_to_state_derivative(L_polar)")
 dstate = Lagrangian_to_state_derivative(L_polar)
 
-"""And finally we integrate the state derivative to simulate the system."""
 
 # System parameters
 l = 1.0  # m  # noqa: E741
@@ -145,15 +60,8 @@ local0 = Local(t0, q0, v0)
 
 # Integrate
 func = lambda local, t: dstate(local)
-
-
-@st.cache_data
-def get_X():
-    locals = odeint(func, local0, ts)
-    return np.asarray(jax.vmap(pendulum2rect)(locals))
-
-
-X = get_X()
+locals = odeint(func, local0, ts)
+X = np.asarray(jax.vmap(pendulum2rect)(locals))
 
 # Animation
 fig, ax = plt.subplots()
@@ -185,5 +93,4 @@ ani = animation.FuncAnimation(
     blit=True,
     repeat=False,
 )
-
-components.html(ani.to_jshtml(), height=1000)
+plt.show()

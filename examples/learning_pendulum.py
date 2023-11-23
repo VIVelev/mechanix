@@ -7,7 +7,6 @@ import jax.numpy as jnp
 import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import numpy as np
-import wandb
 from jax.example_libraries import optimizers, stax
 from jax.experimental.ode import odeint
 from tqdm import tqdm
@@ -88,8 +87,9 @@ key = jax.random.PRNGKey(seed)
 X = locals
 Y = jax.vmap(dstate)(X).v
 testset_size = int(0.3 * len(Y))
-X_train, X_test = jax.tree_map(lambda x: x[:-testset_size], X), jax.tree_map(
-    lambda x: x[-testset_size:], X
+X_train, X_test = (
+    jax.tree_map(lambda x: x[:-testset_size], X),
+    jax.tree_map(lambda x: x[-testset_size:], X),
 )
 Y_train, Y_test = Y[:-testset_size], Y[-testset_size:]
 
@@ -203,19 +203,6 @@ def train(
     *,
     key,
 ):
-    wandb.init(
-        project="learning_pendulum",
-        config={
-            "lr": lr,
-            "batch_size": batch_size,
-            "steps": steps,
-            "t0": t0,
-            "t1": t1,
-            "nhidden": nhidden,
-            "nlayers": nlayers,
-        },
-    )
-
     opt_init, opt_update, get_params = optim(lr)
     opt_state = opt_init(nn_params)
 
@@ -238,7 +225,6 @@ def train(
             testset = loader(X_test, Y_test, batch_size, key=subkey)
             test_loss = np.mean([loss(nn_params, x, y) for x, y in testset])
             pbar.set_description(f"loss: {loss_value:.4f}, test_loss: {test_loss:.4f}")
-            wandb.log({"loss": loss_value, "test_loss": test_loss})
 
     return get_params(opt_state)
 

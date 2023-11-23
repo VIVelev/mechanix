@@ -17,7 +17,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: Implementation :: CPython",
 ]
-dependencies = ["jax", "jaxtyping"]
+dependencies = ["jax"]
 
 [build-system]
 requires = ["hatchling"]
@@ -33,7 +33,6 @@ dependencies = [
   "tqdm",
   "watchdog",
   "streamlit",
-  "wandb",
 
   "pre-commit",
   "ruff",
@@ -48,7 +47,7 @@ ignore = ["F722", "E731"]
 include = ["mechanix", "tests", "examples"]
 
 [tool.ruff.isort]
-known-third-party = ["jax", "wandb"]
+known-third-party = ["jax"]
 combine-as-imports = true
 
 [tool.pyright]

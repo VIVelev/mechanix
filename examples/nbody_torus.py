@@ -95,9 +95,6 @@ state_derivative = jax.jit(Lagrangian_to_state_derivative(L_toroidal))
 # -----------------------------------------------
 # ODE Solver
 # -----------------------------------------------
-# We call `odeint` which solves the system of differential equations
-# using the 4th order Runge-Kutta method. The returned X and V values
-# have a the shape (time, bodies, dimensions)
 
 local = odeint(lambda y, t: state_derivative(y), init_local, Ts)
 
