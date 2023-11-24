@@ -58,8 +58,8 @@ def V(G, M):
     @curry(jax.vmap, in_axes=(0, None, 0, None))
     def gravitational_energy(m1, m2, r1, r2):
         r = r2 - r1
-        potential = -G * m1 * m2 / robust_norm(r)
-        return jnp.where(jnp.allclose(r1, r2), 0, potential)
+        norm = robust_norm(jnp.where(jnp.allclose(r1, r2), 0.1 * jnp.ones_like(r), r))
+        return -G * m1 * m2 / norm
 
     mask = jnp.triu(jnp.ones((N_BODIES, N_BODIES), dtype=bool), 1)
     return lambda local: (

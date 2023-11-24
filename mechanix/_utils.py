@@ -4,7 +4,6 @@ from typing import Any, Callable
 
 import jax
 import jax.numpy as jnp
-import numpy as np
 
 Scalar = int | float | complex
 Array = jax.Array
@@ -25,32 +24,6 @@ def Local(*args):
     """Represents the state of a system at a given time."""
     _field_names = ["t", "pos", "v", "acc", "jerk", "snap", "crackle", "pop"]
     return _namedtuple("Local", *_field_names[: len(args)])(*args)
-
-
-def partial(i: int, f: TupleFunction) -> TupleFunction:
-    """Returns a function that computes the partial derivative
-    of `f` with respect to the `i`th position in the local-tuple.
-    """
-
-    # TODO: Maybe this could be cleaned up?
-    def p(local: Tuple):
-        # Get the number of elements in the ith field
-        d = np.prod(local[i].shape, dtype=int)
-        # Produce a directional vector to the input in
-        # the direction of the ith field
-        tangent_in: Tuple = jax.tree_map(
-            lambda x: jnp.zeros_like(x)[None, ...].repeat(d, 0),
-            local,
-        )
-        field_name = local._fields[i]
-        field_value = jnp.eye(d) if field_name != "t" else jnp.array([1.0])
-        tangent_in = tangent_in._replace(**{field_name: field_value})
-        # Perform a Jacobian-Vector product
-        vmap_jvp = jax.vmap(jax.jvp, in_axes=(None, None, 0))
-        _, tangent_out = vmap_jvp(f, (local,), (tangent_in,))
-        return tangent_out.T if field_name != "t" else tangent_out.squeeze()
-
-    return p
 
 
 def p2r(local):
@@ -199,13 +172,6 @@ def Dt(F: TupleFunction) -> TupleFunction:
     return DtF
 
 
-def Euler_lagrange_operator(L: TupleFunction) -> TupleFunction:
-    """Returns a local-tuple function that computes the Euler-lagrange equations
-    as a moment.
-    """
-    return lambda local: Dt(partial(2, L))(local) - partial(1, L)(local)
-
-
 def compose(*fs):
     def _compose2(f, g):
         return lambda *args, **kwargs: f(g(*args, **kwargs))
@@ -225,15 +191,20 @@ def make_lagrangian(t: TupleFunction, v: TupleFunction) -> TupleFunction:
 
 
 def Lagrangian_to_acceleration(L: TupleFunction) -> TupleFunction:
-    p1L = partial(1, L)
-    p2L = partial(2, L)
-    p02L = partial(0, p2L)
-    p12L = partial(1, p2L)
-    p22L = partial(2, p2L)
+    jacL = jax.jacfwd(L)
+    hessL = jax.jacrev(jacL)
 
     def f(local):
-        a = p22L(local)
-        b = p1L(local) - p12L(local) @ local.v - p02L(local)
+        jacL_ = jacL(local)
+        hessL_ = hessL(local)
+
+        p1L = jacL_[1]
+        p02L = hessL_[2][0]
+        p12L = hessL_[2][1]
+        p22L = hessL_[2][2]
+
+        a = p22L
+        b = p1L - p12L @ local.v - p02L
         return jnp.linalg.pinv(a) @ b
 
     return f
@@ -253,7 +224,7 @@ def Lagrangian_to_state_derivative(L: TupleFunction) -> TupleFunction:
 
 
 def Lagrangian_to_energy(L: TupleFunction) -> TupleFunction:
-    P = partial(2, L)
+    P = lambda x: jax.jacfwd(L)(x)[2]  # Momentum state function
 
     def f(local):
         return P(local) @ local.v - L(local)
@@ -287,7 +258,7 @@ def Noether_integral(
     """
     a = arity(F_tilde)
     zeros = (jnp.zeros(()),) * a
-    P = partial(2, L)
+    P = lambda x: jax.jacfwd(L)(x)[2]  # Momentum state function
     DF_tilde = _jacfwd_parametric(F_tilde, *zeros, argnums=tuple(range(a)))
     return lambda local: P(local) @ jnp.stack(DF_tilde(local)).T
 
