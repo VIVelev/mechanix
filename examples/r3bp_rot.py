@@ -7,7 +7,6 @@ from mechanix import (
     F2C,
     Lagrangian_to_energy,
     Lagrangian_to_state_derivative,
-    Local,
     compose,
     p2r,
     r2p,
@@ -22,7 +21,8 @@ def L0(m, V):
     """
 
     def f(local):
-        return 0.5 * m * jnp.dot(local.v, local.v) - V(local.t, local.pos)
+        t, q, v = local
+        return 0.5 * m * v.T @ v - V(t, q)
 
     return f
 
@@ -72,8 +72,7 @@ def rot(omega):
     """Rotation in polar coordinates (since it's easy to define :))."""
 
     def f(local):
-        t = local.t
-        r, theta = local.pos
+        t, [r, theta], _ = local
         return jnp.array([r, theta + omega * t])
 
     return f
@@ -110,7 +109,7 @@ v_esc = jnp.sqrt(2 * GM0 / d)
 v0 = jnp.array([0.9, 0.1])
 # Scale the velocity to the 98% escape velocity:
 v0 = 0.98 * v_esc * v0 / jnp.linalg.norm(v0)
-init_local = Local(t0, q0, v0)
+init_local = (t0, q0, v0)
 
 L = compose(
     L0(m, V(a, GM0, GM1, m)),
@@ -135,8 +134,9 @@ from matplotlib.animation import FuncAnimation  # noqa: E402
 
 mpl.rc("axes.formatter", useoffset=False)
 
-X = np.asarray(locals.pos)
-Vs = np.asarray(locals.v)
+_, X, Vs = locals
+X = np.asarray(X)
+Vs = np.asarray(Vs)
 E = np.asarray(energies)
 J = np.mean(E)
 
@@ -151,12 +151,13 @@ ax[0].set_ylim(-y_lim, y_lim)
 # Plot the potential
 sample_size = 512
 xs, ys = np.meshgrid(
-    np.linspace(-x_lim, x_lim, sample_size), np.linspace(-y_lim, y_lim, sample_size)
+    np.linspace(-x_lim, x_lim, sample_size),
+    np.linspace(-y_lim, y_lim, sample_size),
 )
 xys = jnp.stack([xs, ys], axis=-1)
 vs = jnp.zeros_like(xys)
 ts = jnp.zeros((sample_size, sample_size))
-states = Local(ts, xys, vs)
+states = (ts, xys, vs)
 zs = np.array(jax.vmap(energy)(states))
 
 # Now get the zero-velocity curves
@@ -196,6 +197,10 @@ def animate(i):
 
 
 anim = FuncAnimation(
-    fig, animate, frames=range(1, len(Ts), 1000), interval=20, blit=False
+    fig,
+    animate,
+    frames=range(1, len(Ts), 1000),
+    interval=20,
+    blit=False,
 )
 plt.show()

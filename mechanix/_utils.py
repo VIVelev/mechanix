@@ -1,5 +1,4 @@
-from collections import namedtuple
-from functools import cache, reduce
+from functools import reduce
 from typing import Any, Callable
 
 import jax
@@ -8,33 +7,21 @@ import jax.numpy as jnp
 Scalar = int | float | complex
 Array = jax.Array
 
-Tuple = tuple[Scalar | Array, ...]
-TupleFunction = Callable[[Tuple], Any]
-
-Path = Callable[[Scalar], Tuple]
+State = tuple[Scalar | Array, ...]
+StateFunction = Callable[[State], Any]
+Path = Callable[[Scalar], Array]
 PathFunction = Callable[[Path], Callable[[Scalar], Any]]
 
 
-@cache
-def _namedtuple(typename, *field_names):
-    return namedtuple(typename, field_names)
-
-
-def Local(*args):
-    """Represents the state of a system at a given time."""
-    _field_names = ["t", "pos", "v", "acc", "jerk", "snap", "crackle", "pop"]
-    return _namedtuple("Local", *_field_names[: len(args)])(*args)
-
-
-def p2r(local):
+def p2r(local: State):
     """Converts polar coordinates to rectangular coordinates."""
-    r, theta = local.pos
+    _, [r, theta], *_ = local
     return r * jnp.array([jnp.cos(theta), jnp.sin(theta)])
 
 
-def r2p(local):
+def r2p(local: State):
     """Converts rectangular coordinates to polar coordinates."""
-    x, y = local.pos
+    _, [x, y], *_ = local
     return jnp.array([jnp.sqrt(x**2 + y**2), jnp.arctan2(y, x)])
 
 
@@ -74,7 +61,7 @@ def Rz(theta) -> Callable[[Array], Array]:
     return f
 
 
-def osculating_path(local: Tuple) -> Path:
+def osculating_path(local: State) -> Path:
     """Generates an osculating path with the given local-tuple components.
 
     Two paths that have the same local description up to the nth derivative
@@ -120,27 +107,27 @@ class _operator:
 D = _operator("D", lambda f: jax.jacfwd(f))
 
 
-def Gamma_bar(f_bar: PathFunction) -> TupleFunction:
+def Gamma_bar(f_bar: PathFunction) -> StateFunction:
     """Takes a path function and returns the corresponding local-tuple function."""
-    return lambda local: f_bar(osculating_path(local))(local.t)
+    return lambda local: f_bar(osculating_path(local))(local[0])
 
 
-def Gamma(q: Path, n=3) -> Callable[[Scalar], Tuple]:
+def Gamma(q: Path, n=3) -> Callable[[Scalar], State]:
     assert n >= 2
     ds = [(D**i)(q) for i in range(1, n - 1)]
 
     def f(t):
-        return Local(t, q(t), *[d(t) for d in ds])
+        return t, q(t), *[d(t) for d in ds]
 
     return f
 
 
-def F2C(F: TupleFunction) -> TupleFunction:
+def F2C(F: StateFunction) -> StateFunction:
     """Given a coordinate transformation (`F`)
     return the corresponding state transformation (`C`).
     """
 
-    def C(local):
+    def C(local: State):
         n = len(local)
 
         def f_bar(q_prime):
@@ -155,13 +142,13 @@ def F2C(F: TupleFunction) -> TupleFunction:
     return C
 
 
-def Dt(F: TupleFunction) -> TupleFunction:
+def Dt(F: StateFunction) -> StateFunction:
     """Return the Total Time Derivatice of F - a local-tuple function.
 
     DtF o Gamma[q] = D(F o Gamma[q])
     """
 
-    def DtF(local):
+    def DtF(local: State):
         n = len(local)
 
         def DF_on_path(q):
@@ -181,20 +168,22 @@ def compose(*fs):
     return reduce(_compose2, fs)
 
 
-def make_lagrangian(t: TupleFunction, v: TupleFunction) -> TupleFunction:
+def make_lagrangian(t: StateFunction, v: StateFunction) -> StateFunction:
     """Classical Lagrangian: L = T - V."""
 
-    def f(local: Tuple) -> Scalar:
+    def f(local: State) -> Scalar:
         return t(local) - v(local)
 
     return f
 
 
-def Lagrangian_to_acceleration(L: TupleFunction) -> TupleFunction:
+def Lagrangian_to_acceleration(L: StateFunction) -> StateFunction:
     jacL = jax.jacfwd(L)
     hessL = jax.jacrev(jacL)
 
-    def f(local):
+    def f(local: State):
+        _, _, v = local
+
         jacL_ = jacL(local)
         hessL_ = hessL(local)
 
@@ -204,63 +193,30 @@ def Lagrangian_to_acceleration(L: TupleFunction) -> TupleFunction:
         p22L = hessL_[2][2]
 
         a = p22L
-        b = p1L - p12L @ local.v - p02L
+        b = p1L - p12L @ v - p02L
         return jnp.linalg.pinv(a) @ b
 
     return f
 
 
-def Lagrangian_to_state_derivative(L: TupleFunction) -> TupleFunction:
+def Lagrangian_to_state_derivative(L: StateFunction) -> StateFunction:
     accel = Lagrangian_to_acceleration(L)
 
-    def f(local):
-        return Local(
-            jnp.ones_like(local.t),
-            local.v,
-            accel(local),
-        )
+    def f(local: State):
+        t, _, v = local
+        return jnp.ones_like(t), v, accel(local)
 
     return f
 
 
-def Lagrangian_to_energy(L: TupleFunction) -> TupleFunction:
+def Lagrangian_to_energy(L: StateFunction) -> StateFunction:
     P = lambda x: jax.jacfwd(L)(x)[2]  # Momentum state function
 
-    def f(local):
-        return P(local) @ local.v - L(local)
+    def f(local: State):
+        _, _, v = local
+        return P(local) @ v - L(local)
 
     return f
-
-
-def arity(f):
-    return f.__code__.co_argcount
-
-
-def _jacfwd_parametric(fun, *args, **kwargs):
-    def df(*df_args, **df_kwargs):
-        return jax.jacfwd(lambda *a: fun(*a)(*df_args, **df_kwargs), **kwargs)(*args)
-
-    return df
-
-
-def Noether_integral(
-    L: TupleFunction,
-    F_tilde: Callable[..., TupleFunction],
-) -> TupleFunction:
-    """Noether Theorem Support
-
-    F-tilde is a parametric coordinate transformation that given parameters takes
-    a state and returns transformed coordinates. F-tilde may take an arbitrary
-    number of real-valued parameters. F-tilde applied to zeros is the coordinate
-    selector: It takes a state and returns the coordinates. The hypothesis of
-    Noether's theorem is that the Lagrangian is invariant under the
-    transformation for all values of the parameters
-    """
-    a = arity(F_tilde)
-    zeros = (jnp.zeros(()),) * a
-    P = lambda x: jax.jacfwd(L)(x)[2]  # Momentum state function
-    DF_tilde = _jacfwd_parametric(F_tilde, *zeros, argnums=tuple(range(a)))
-    return lambda local: P(local) @ jnp.stack(DF_tilde(local)).T
 
 
 def robust_norm(x, p=2):

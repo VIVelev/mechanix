@@ -3,7 +3,7 @@ import jax.numpy as jnp
 import numpy as np
 from jax.experimental.ode import odeint
 
-from mechanix import Lagrangian_to_energy, Lagrangian_to_state_derivative, Local
+from mechanix import Lagrangian_to_energy, Lagrangian_to_state_derivative
 
 
 def L0(m, V):
@@ -12,7 +12,8 @@ def L0(m, V):
     """
 
     def f(local):
-        return 0.5 * m * jnp.dot(local.v, local.v) - V(local.t, local.pos)
+        t, q, v = local
+        return 0.5 * m * v.T @ v - V(t, q)
 
     return f
 
@@ -72,7 +73,7 @@ Ts = jnp.arange(T0, Tf, DT)
 t0 = jnp.array(T0)
 q0 = jnp.array([a, 0.0])
 v0 = jnp.array([0.0, 0.0])
-init_local = Local(t0, q0, v0)
+init_local = (t0, q0, v0)
 
 L = L0(m, V(a, GM0, GM1, m))
 dlocal = jax.jit(Lagrangian_to_state_derivative(L))
@@ -89,8 +90,9 @@ energies = energy(locals)
 import matplotlib.pyplot as plt  # noqa: E402
 from matplotlib.animation import FuncAnimation  # noqa: E402
 
-X = np.asarray(locals.pos)
-Vs = np.asarray(locals.v)
+_, X, Vs = locals
+X = np.asarray(X)
+Vs = np.asarray(Vs)
 E = np.asarray(energies)
 
 a0, a1 = get_a0_a1(a, GM0, GM1)

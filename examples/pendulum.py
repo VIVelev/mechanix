@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from jax.experimental.ode import odeint
 
-from mechanix import F2C, Lagrangian_to_state_derivative, Local, compose
+from mechanix import F2C, Lagrangian_to_state_derivative, compose
 
 
 def T(m):
@@ -29,7 +29,7 @@ L_rectangular = lambda local: T(m)(local) - V(m, g)(local)
 
 # Convert pendulum coordinates (theta) to rectangular coordinates (x, y)
 def pendulum2rect(local):
-    theta = local.pos[0]
+    _, [theta], _ = local
     return l * jnp.array([jnp.cos(theta), jnp.sin(theta)])
 
 
@@ -56,7 +56,7 @@ ts = jnp.arange(t0, t1, dt)
 t0 = jnp.array(t0, dtype=float)  # s
 q0 = jnp.array([-np.pi / 4])  # m
 v0 = jnp.array([0.0])  # m/s
-local0 = Local(t0, q0, v0)
+local0 = (t0, q0, v0)
 
 # Integrate
 func = lambda local, t: dstate(local)

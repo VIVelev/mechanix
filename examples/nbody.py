@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from jax.experimental.ode import odeint
 
-from mechanix import Lagrangian_to_state_derivative, Local, make_lagrangian, robust_norm
+from mechanix import Lagrangian_to_state_derivative, make_lagrangian, robust_norm
 
 mpl.rcParams["axes.formatter.useoffset"] = False
 jax.config.update("jax_enable_x64", True)
@@ -36,7 +36,7 @@ X0 = X0.at[:, 2].set(0.0)
 V0 = V0.at[:, 2].set(0.0)
 
 # System State
-init_local = Local(jnp.array(T0), X0.flatten(), V0.flatten())
+init_local = (jnp.array(T0), X0.flatten(), V0.flatten())
 
 
 def T(M):
@@ -44,7 +44,7 @@ def T(M):
     def kinetic_energy(m, v):
         return 0.5 * m * jnp.dot(v, v)
 
-    return lambda local: kinetic_energy(M, local.v.reshape(N_BODIES, -1)).sum()
+    return lambda local: kinetic_energy(M, local[2].reshape(N_BODIES, -1)).sum()
 
 
 def V(G, M):
@@ -60,8 +60,8 @@ def V(G, M):
         gravitational_energy(
             M,
             M,
-            local.pos.reshape(N_BODIES, -1),
-            local.pos.reshape(N_BODIES, -1),
+            local[1].reshape(N_BODIES, -1),
+            local[1].reshape(N_BODIES, -1),
         )
         * mask
     ).sum()
@@ -89,7 +89,7 @@ local = jax.tree_map(np.asarray, local)
 # of the system. The animate function iteratively updates some lines and scatter
 # plots.
 
-X = local.pos.reshape(len(Ts), N_BODIES, -1)
+X = local[1].reshape(len(Ts), N_BODIES, -1)
 fig, ax = plt.subplots(figsize=(8, 8))
 
 ax.axis("off")
