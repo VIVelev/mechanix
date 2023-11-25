@@ -38,7 +38,7 @@ L_polar = compose(
     L_rectangular,
     local_tuple_transformation,
 )
-dstate = Lagrangian_to_state_derivative(L_polar)
+dstate = jax.jit(Lagrangian_to_state_derivative(L_polar))
 
 
 # System parameters

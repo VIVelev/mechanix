@@ -5,16 +5,17 @@ import numpy as np
 import streamlit as st
 from jax.experimental.ode import odeint
 from matplotlib.animation import FuncAnimation
-from streamlit.components.v1 import html
 
 from mechanix import Hamiltonian_to_state_derivative
 
-plt.style.use("cyberpunk")
+plt.style.use(
+    "https://github.com/dhaitz/matplotlib-stylesheets/raw/master/pitayasmoothie-dark.mplstyle"
+)
 
 
 def H(m, g, l):
     def f(local):
-        _, q, p = local
+        _, [q], [p] = local
         return p**2 / (2 * m) + m * g * l * (1 - jnp.cos(q))
 
     return f
@@ -27,10 +28,10 @@ l = st.slider("Length", 0.1, 3.0, 1.0)  # m
 t0 = jnp.array(0.0)
 t1 = 2.0
 dt = 0.01
-local0 = (t0, jnp.array(jnp.pi / 4), jnp.array(2 * jnp.pi))
+local0 = (t0, jnp.array([jnp.pi / 4]), jnp.array([0.0]))
 
 hamiltonian = H(m, g, l)
-dstate = Hamiltonian_to_state_derivative(hamiltonian)
+dstate = jax.jit(Hamiltonian_to_state_derivative(hamiltonian))
 func = lambda y, t: dstate(y)
 locals = odeint(func, local0, jnp.arange(t0, t1, dt))
 Ts, Qs, Ps = tuple(map(np.asarray, locals))
@@ -38,10 +39,9 @@ Ts, Qs, Ps = tuple(map(np.asarray, locals))
 N = 100
 ts = np.zeros((N, N))
 qs, ps = np.meshgrid(np.linspace(-np.pi, np.pi, N), np.linspace(-20, 20, N))
-hs = np.asarray(jax.vmap(hamiltonian)((ts, qs, ps)))
+hs = np.asarray(jax.vmap(jax.vmap(hamiltonian))((ts, qs[:, :, None], ps[:, :, None])))
 
 fig, ax = plt.subplots()
-fig.set_dpi(100)
 ax.set_xlim(-np.pi, np.pi)
 ax.set_ylim(-20, 20)
 
@@ -59,7 +59,7 @@ def principal(q):
 
 
 def update(i):
-    dot.set_offsets([principal(Qs[i]), Ps[i]])
+    dot.set_offsets([[principal(Qs[i, 0]), Ps[i, 0]]])
     return cont, dot
 
 
@@ -72,4 +72,5 @@ anim = FuncAnimation(
     blit=True,
 )
 
-html(anim.to_jshtml(), height=1000)
+plt.show()
+# html(anim.to_jshtml(), height=1000)

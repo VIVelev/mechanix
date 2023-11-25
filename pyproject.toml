@@ -30,7 +30,6 @@ include = ["mechanix/*"]
 dependencies = [
   "jaxlib",
   "matplotlib",
-  "mplcyberpunk",
   "tqdm",
   "watchdog",
   "streamlit",
