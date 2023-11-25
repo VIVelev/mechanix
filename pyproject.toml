@@ -30,6 +30,7 @@ include = ["mechanix/*"]
 dependencies = [
   "jaxlib",
   "matplotlib",
+  "mplcyberpunk",
   "tqdm",
   "watchdog",
   "streamlit",
@@ -43,7 +44,7 @@ dependencies = [
 
 [tool.ruff]
 select = ["E", "F", "I001"]
-ignore = ["F722", "E731"]
+ignore = ["F722", "E731", "E741"]
 include = ["mechanix", "tests", "examples"]
 
 [tool.ruff.isort]

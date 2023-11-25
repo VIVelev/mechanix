@@ -178,8 +178,8 @@ def make_lagrangian(t: StateFunction, v: StateFunction) -> StateFunction:
 
 
 def Lagrangian_to_acceleration(L: StateFunction) -> StateFunction:
-    jacL = jax.jacfwd(L)
-    hessL = jax.jacrev(jacL)
+    jacL = jax.jacrev(L)
+    hessL = jax.jacfwd(jacL)
 
     def f(local: State):
         _, _, v = local
@@ -210,13 +210,69 @@ def Lagrangian_to_state_derivative(L: StateFunction) -> StateFunction:
 
 
 def Lagrangian_to_energy(L: StateFunction) -> StateFunction:
-    P = lambda x: jax.jacfwd(L)(x)[2]  # Momentum state function
+    jacL = jax.jacrev(L)
+    P = lambda x: jacL(x)[2]  # Momentum state function
 
     def f(local: State):
         _, _, v = local
         return P(local) @ v - L(local)
 
     return f
+
+
+def Hamiltonian_to_state_derivative(H: StateFunction) -> StateFunction:
+    jacH = jax.jacrev(H)
+
+    def f(local: State):
+        t, _, _ = local
+        jacH_ = jacH(local)
+        return jnp.ones_like(t), jacH_[2], -jacH_[1]
+
+    return f
+
+
+def Legendre_transform(F: Callable[..., Any]) -> Callable[..., Any]:
+    """Legendre transform for quadratic functions.
+
+    Given:
+        F(v) = 1/2 v^T A v + b^T v + c
+        w = DF(v) = A v + b
+    The functions G related to F by a Legendre transform is:
+        v w = F(v) + G(w)
+        G(w) = w v - F(v)
+        G(w) = w V(w) - F(V(w))
+        V(w) = A^-1 (w - b)
+    """
+
+    w_of_v = jax.jacrev(F)
+    dw_of_v = jax.jacfwd(w_of_v)
+
+    def G(w):
+        zeros = jnp.zeros_like(w)
+        A = dw_of_v(zeros)
+        b = w_of_v(zeros)
+        v = jnp.linalg.solve(A, w - b)
+        return jnp.dot(w, v) - F(v)
+
+    return G
+
+
+def Lagrangian_to_Hamiltonian(L: StateFunction) -> StateFunction:
+    def H(local: State):
+        t, q, p = local
+        G = Legendre_transform(lambda v: L((t, q, v)))
+        return G(p)
+
+    return H
+
+
+def Hamiltonian_to_Lagrangian(H: StateFunction) -> StateFunction:
+    def L(local: State):
+        t, q, v = local
+        F = Legendre_transform(lambda p: H((t, q, p)))
+        return F(v)
+
+    return L
 
 
 def robust_norm(x, p=2):

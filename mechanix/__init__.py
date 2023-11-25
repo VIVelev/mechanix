@@ -1,7 +1,10 @@
 from ._utils import (
     F2C as F2C,
     Dt as Dt,
+    Hamiltonian_to_Lagrangian as Hamiltonian_to_Lagrangian,
+    Hamiltonian_to_state_derivative as Hamiltonian_to_state_derivative,
     Lagrangian_to_energy as Lagrangian_to_energy,
+    Lagrangian_to_Hamiltonian as Lagrangian_to_Hamiltonian,
     Lagrangian_to_state_derivative as Lagrangian_to_state_derivative,
     Rx as Rx,
     Ry as Ry,
