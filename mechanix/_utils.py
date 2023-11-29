@@ -3,11 +3,39 @@ from typing import Any, Callable
 
 import jax
 import jax.numpy as jnp
+from tree_math import VectorMixin
 
 Scalar = int | float | complex
 Array = jax.Array
 
-State = tuple[Scalar | Array, ...]
+
+@jax.tree_util.register_pytree_node_class
+class State(VectorMixin):
+    """Generic state representation."""
+
+    def __init__(self, *args):
+        self.tup = args
+
+    def __repr__(self):
+        return f"State{self.tup}"
+
+    def __getitem__(self, i):
+        return self.tup[i]
+
+    def __iter__(self):
+        return iter(self.tup)
+
+    def __len__(self):
+        return len(self.tup)
+
+    def tree_flatten(self):
+        return self.tup, None
+
+    @classmethod
+    def tree_unflatten(cls, _, tup):
+        return cls(*tup)
+
+
 StateFunction = Callable[[State], Any]
 Path = Callable[[Scalar], Array]
 PathFunction = Callable[[Path], Callable[[Scalar], Any]]
@@ -117,7 +145,7 @@ def Gamma(q: Path, n=3) -> Callable[[Scalar], State]:
     ds = [(D**i)(q) for i in range(1, n - 1)]
 
     def f(t):
-        return t, q(t), *[d(t) for d in ds]
+        return State(t, q(t), *[d(t) for d in ds])
 
     return f
 
@@ -204,7 +232,7 @@ def Lagrangian_to_state_derivative(L: StateFunction) -> StateFunction:
 
     def f(local: State):
         t, _, v = local
-        return jnp.ones_like(t), v, accel(local)
+        return State(jnp.ones_like(t), v, accel(local))
 
     return f
 
@@ -226,7 +254,7 @@ def Hamiltonian_to_state_derivative(H: StateFunction) -> StateFunction:
     def f(local: State):
         t, _, _ = local
         jacH_ = jacH(local)
-        return jnp.ones_like(t), jacH_[2], -jacH_[1]
+        return State(jnp.ones_like(t), jacH_[2], -jacH_[1])
 
     return f
 

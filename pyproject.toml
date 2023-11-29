@@ -17,7 +17,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: Implementation :: CPython",
 ]
-dependencies = ["jax"]
+dependencies = ["jax", "tree-math"]
 
 [build-system]
 requires = ["hatchling"]
@@ -37,7 +37,7 @@ dependencies = [
   "pre-commit",
   "ruff",
   "ruff-lsp",
-  "pyright",
+  "python-lsp-server",
   "pytest",
 ]
 
@@ -49,7 +49,3 @@ include = ["mechanix", "tests", "examples"]
 [tool.ruff.isort]
 known-third-party = ["jax"]
 combine-as-imports = true
-
-[tool.pyright]
-reportGeneralTypeIssues = false
-include = ["mechanix", "tests", "examples"]

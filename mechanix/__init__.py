@@ -9,6 +9,7 @@ from ._utils import (
     Rx as Rx,
     Ry as Ry,
     Rz as Rz,
+    State as State,
     compose as compose,
     make_lagrangian as make_lagrangian,
     p2r as p2r,

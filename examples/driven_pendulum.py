@@ -3,13 +3,13 @@ import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
 import streamlit as st
-from jax.experimental.ode import odeint
 from matplotlib.animation import FuncAnimation
 
 from mechanix import (
     F2C,
     Hamiltonian_to_state_derivative,
     Lagrangian_to_Hamiltonian,
+    State,
     compose,
 )
 
@@ -63,17 +63,57 @@ l = st.slider("Length", 0.1, 3.0, 1.0)  # m
 A = st.slider("Amplitude", 0.0, 1.0, 0.1)  # m
 omega = st.slider("Frequency", 0.0, 10.0, 2 * np.sqrt(g))  # Hz
 
-t0 = jnp.array(0.0)
-t1 = 1000.0
+T = 1000.0
 dt = 0.01
-local0 = (t0, jnp.array([1.0]), jnp.array([0.0]))
+local0 = State(jnp.array(0.0), jnp.array([1.0]), jnp.array([0.0]))
 
 hamiltonian = H(m, g, l, A, omega)
 dstate = jax.jit(Hamiltonian_to_state_derivative(hamiltonian))
 func = lambda y, t: dstate(y)
 
-# NOTE: Try a different integrator?
-locals = odeint(func, local0, jnp.arange(t0, t1, dt))
+
+def ab2(f, y0, ts):
+    """y_n+2 - y_n+1 = h/2 [3f_n+1 - f_n]"""
+
+    def body(carry, t):
+        f_n, y_n1, t_prev = carry
+        f_n1 = f(y_n1, t)
+        y_n2 = y_n1 + (t - t_prev) / 2 * (3 * f_n1 - f_n)
+        return (f_n1, y_n2, t), y_n2
+
+    h0 = ts[1] - ts[0]
+    f0 = f(y0, ts[0])
+    _, ys = jax.lax.scan(body, (f0, y0 + h0 * f0, ts[0]), ts[1:])
+    return ys
+
+
+def rk4(f, y0, ts):
+    def body(carry, t):
+        y_prev, t_prev = carry
+        h = t - t_prev
+        k1 = f(y_prev, t_prev)
+        k2 = f(y_prev + h / 2 * k1, t_prev + h / 2)
+        k3 = f(y_prev + h / 2 * k2, t_prev + h / 2)
+        k4 = f(y_prev + h * k3, t_prev + h)
+        y = y_prev + h / 6 * (k1 + 2 * k2 + 2 * k3 + k4)
+        return (y, t), y
+
+    _, ys = jax.lax.scan(body, (y0, ts[0]), ts[1:])
+    return ys
+
+
+def euler(f, y0, ts):
+    def body(carry, t):
+        y_prev, t_prev = carry
+        h = t - t_prev
+        y = y_prev + h * f(y_prev, t_prev)
+        return (y, t), y
+
+    _, ys = jax.lax.scan(body, (y0, ts[0]), ts[1:])
+    return ys
+
+
+locals = ab2(func, local0, jnp.arange(0, T, dt))
 Ts, Qs, Ps = tuple(map(np.asarray, locals))
 
 
@@ -108,8 +148,8 @@ def update(i):
 anim = FuncAnimation(
     fig,
     update,
-    init_func=init,
-    frames=range(1, len(Ts), 10),
+    range(1, len(Ts), 10),
+    init,
     interval=20,
 )
 

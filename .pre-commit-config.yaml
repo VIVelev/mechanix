@@ -8,8 +8,3 @@ repos:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
-  - repo: https://github.com/RobertCraigie/pyright-python
-    rev: v1.1.311
-    hooks:
-    - id: pyright
-      additional_dependencies: ["jax", "matplotlib", "streamlit"]
