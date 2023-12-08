@@ -30,7 +30,7 @@ L_rectangular = lambda local: T(m)(local) - V(m, g)(local)
 # Convert pendulum coordinates (theta) to rectangular coordinates (x, y)
 def pendulum2rect(local):
     _, [theta], _ = local
-    return l * jnp.array([jnp.cos(theta), jnp.sin(theta)])
+    return l * jnp.array([jnp.sin(theta), -jnp.cos(theta)])
 
 
 local_tuple_transformation = F2C(pendulum2rect)
@@ -50,18 +50,18 @@ g = 9.81  # m/s^2
 t0 = 0.0  # s
 t1 = 10.0  # s
 dt = 0.1  # s
-ts = jnp.arange(t0, t1, dt)
+ts = jnp.arange(t0, t1 + dt, dt)
 
 # Initial conditions (in polar coordinates)
 t0 = jnp.array(t0, dtype=float)  # s
-q0 = jnp.array([-np.pi / 4])  # m
-v0 = jnp.array([0.0])  # m/s
-local0 = (t0, q0, v0)
+q0 = jnp.array([np.pi / 6])  # m
+p0 = jnp.array([0.0])  # m/s
+local0 = (t0, q0, p0)
 
 # Integrate
 func = lambda local, t: dstate(local)
 locals = odeint(func, local0, ts)
-X = np.asarray(jax.vmap(pendulum2rect)(locals))
+X = jax.vmap(pendulum2rect)(locals)
 
 # Animation
 fig, ax = plt.subplots()

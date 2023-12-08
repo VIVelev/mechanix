@@ -3,10 +3,15 @@ from typing import Any, Callable
 
 import jax
 import jax.numpy as jnp
+import numpy as np
 from tree_math import VectorMixin
 
 Scalar = int | float | complex
 Array = jax.Array
+
+
+def principal(q, *, cutoff=np.pi):
+    return q - 2 * cutoff * np.round(q / (2 * cutoff))
 
 
 @jax.tree_util.register_pytree_node_class

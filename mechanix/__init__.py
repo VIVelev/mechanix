@@ -1,3 +1,6 @@
+from ._solvers import (
+    state_advancer as state_advancer,
+)
 from ._utils import (
     F2C as F2C,
     Dt as Dt,
@@ -13,6 +16,10 @@ from ._utils import (
     compose as compose,
     make_lagrangian as make_lagrangian,
     p2r as p2r,
+    principal as principal,
     r2p as r2p,
     robust_norm as robust_norm,
+)
+from ._viz import (
+    explore_map as explore_map,
 )

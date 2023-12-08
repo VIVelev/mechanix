@@ -2,7 +2,6 @@ import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
-import streamlit as st
 from jax.experimental.ode import odeint
 from matplotlib.animation import FuncAnimation
 
@@ -21,19 +20,19 @@ def H(m, g, l):
     return f
 
 
-m = st.slider("Mass", 0.1, 3.0, 1.0)  # kg
-g = st.slider("Gravity", 0.0, 15.0, 9.8)  # m/s^2
-l = st.slider("Length", 0.1, 3.0, 1.0)  # m
+m = 1.0  # kg
+g = 9.8  # m/s^2
+l = 1.0  # m
 
 t0 = jnp.array(0.0)
-t1 = 2.0
+t1 = 2 * np.pi * np.sqrt(l / g)
 dt = 0.01
-local0 = (t0, jnp.array([jnp.pi / 4]), jnp.array([0.0]))
+local0 = (t0, jnp.array([np.pi / 6]), jnp.array([0.0]))
 
 hamiltonian = H(m, g, l)
 dstate = jax.jit(Hamiltonian_to_state_derivative(hamiltonian))
 func = lambda y, t: dstate(y)
-locals = odeint(func, local0, jnp.arange(t0, t1, dt))
+locals = odeint(func, local0, jnp.arange(t0, t1 + dt, dt))
 Ts, Qs, Ps = tuple(map(np.asarray, locals))
 
 N = 100
@@ -73,4 +72,3 @@ anim = FuncAnimation(
 )
 
 plt.show()
-# html(anim.to_jshtml(), height=1000)

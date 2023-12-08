@@ -3,7 +3,7 @@ name = "mechanix"
 version = "0.0.1"
 description = "Lagrangians in JAX"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 license = "MIT"
 keywords = []
 authors = [
@@ -12,8 +12,6 @@ authors = [
 classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.9",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: Implementation :: CPython",
 ]
@@ -30,9 +28,6 @@ include = ["mechanix/*"]
 dependencies = [
   "jaxlib",
   "matplotlib",
-  "tqdm",
-  "watchdog",
-  "streamlit",
 
   "pre-commit",
   "ruff",

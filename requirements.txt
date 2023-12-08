@@ -1,5 +1,0 @@
-jax
-jaxtyping
-jaxlib
-matplotlib
-. # this is the mechanix library
