@@ -1,43 +1,107 @@
-from itertools import cycle
 from typing import Callable
 
 import jax
 import jax.numpy as jnp
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
+import numpy as np
 
 from ._utils import Array
 
 
+def cartesian_product(xs, ys):
+    """Computes the cartesian product of two arrays."""
+    return jnp.transpose(jnp.array([jnp.tile(xs, len(ys)), jnp.repeat(ys, len(xs))]))
+
+
+# NOTE: For interactive use cases this may be a bit slow ;(
 def explore_map(
     fig: plt.Figure,
     sys_map: Callable[[Array], Array],
     n: int,
     *,
-    grid_resolution=16,
+    interactive=False,
+    grid_size=16,
 ):
     ax = fig.gca()
-    x_lim, y_lim = ax.get_xlim(), ax.get_ylim()
-    xs0, ys0 = (
-        jnp.linspace(*x_lim, grid_resolution),
-        jnp.linspace(*y_lim, grid_resolution),
-    )
-    xx0, yy0 = jnp.meshgrid(xs0, ys0)
+    ax.autoscale(False)
+    vmap = jax.vmap(sys_map)
+    init_samples = jnp.empty((0, 2), dtype=jnp.float_)
+    evolution = jnp.empty((0, 0, 2), dtype=jnp.float_)
+    # Make a color for each time step (0, ..., n)
+    # And enough to cover each trajectory
+    colors = np.tile(list(mcolors.XKCD_COLORS.values()), n).reshape(n, -1)
+    if not interactive:
+        assert colors.shape[1] >= grid_size**2
 
-    vvmap = jax.vmap(jax.vmap(sys_map))
+    def set_samples():
+        nonlocal init_samples
+        xlim, ylim = ax.get_xlim(), ax.get_ylim()
+        xs, ys = (
+            jnp.linspace(*xlim, grid_size),
+            jnp.linspace(*ylim, grid_size),
+        )
+        init_samples = cartesian_product(xs, ys)
 
-    @jax.jit
-    def body(carry, _):
-        out = vvmap(carry)
-        return out, out
+    def compute():
+        nonlocal evolution
 
-    evolution0 = jnp.stack([xx0, yy0], axis=-1)
-    _, evolution = jax.lax.scan(body, evolution0, jnp.arange(n), length=n)
-    xx, yy = evolution[:, :, :, 0], evolution[:, :, :, 1]
+        def body(carry, _):
+            out = vmap(carry)
+            return out, out
 
-    # make each different color a different trajectory
-    color = cycle(mcolors.XKCD_COLORS.values())
+        _, evolution = jax.lax.scan(body, init_samples, jnp.arange(n), length=n)
 
-    for i in range(grid_resolution):
-        for j in range(grid_resolution):
-            ax.scatter(xx[:, i, j], yy[:, i, j], c=next(color), s=1)
+    def plot():
+        ax.scatter(
+            evolution[:, :, 0].flatten(),
+            evolution[:, :, 1].flatten(),
+            c=colors[:, : len(init_samples)].flatten(),
+            s=1,
+        )
+
+    # BUG: There is some issue with color ("cs")
+    # when you spam the "onclick".
+    def plot_interactive():
+        k = len(init_samples)
+        for j in range(1, n):
+            xs = evolution[:j, :, 0].flatten()
+            ys = evolution[:j, :, 1].flatten()
+            cs = colors[:j, :k].flatten()
+            ax.scatter(xs, ys, c=cs, s=1)
+            plt.pause(0.001)
+
+    def onclick(event):
+        """Set a sample point."""
+
+        if not event.dblclick:
+            return
+
+        nonlocal init_samples
+        x, y = event.xdata, event.ydata
+        init_samples = jnp.vstack((init_samples, jnp.array([x, y])))
+        # NOTE: Colors may run out!
+        ax.scatter(
+            init_samples[:, 0],
+            init_samples[:, 1],
+            c=colors[0, : len(init_samples)],
+            s=1,
+        )
+
+    def onenter(event):
+        """Compute and plot."""
+
+        if event.key != "enter":
+            return
+
+        compute()
+        plot_interactive()
+
+    if interactive:
+        fig.canvas.mpl_connect("button_press_event", onclick)  # set sample
+        fig.canvas.mpl_connect("key_release_event", onenter)  # compute and plot
+        plt.ion()
+    else:
+        set_samples()
+        compute()
+        plot()
