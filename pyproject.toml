@@ -27,6 +27,7 @@ include = ["mechanix/*"]
 [tool.hatch.envs.dev]
 dependencies = [
   "jaxlib",
+  "altair",
   "matplotlib",
 
   "pre-commit",

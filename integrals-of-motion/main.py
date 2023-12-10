@@ -1,12 +1,11 @@
+import altair as alt
 import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
+import numpy as np
+from jax.experimental.ode import odeint
 
 from mechanix import Hamiltonian_to_state_derivative, State, explore_map, state_advancer
-
-# plt.style.use(
-#     "https://github.com/dhaitz/matplotlib-stylesheets/raw/master/pitayasmoothie-dark.mplstyle"
-# )
 
 plt.style.use("dark_background")
 
@@ -62,7 +61,6 @@ def find_next_crossing(st, dt, adv, sec_eps):
         (st, adv(st, dt)),
     )
 
-    # return st
     return refine_crossing(st, adv, sec_eps)
 
 
@@ -75,35 +73,85 @@ def refine_crossing(st, adv, sec_eps):
     def body(st):
         x, xd = st[1][0], st[2][0]
         next_st = adv(st, -x / xd)
-        # jax.debug.print("x = {}", x)
-        # jax.debug.print("xd = {}", xd)
-        # jax.debug.print("next_st = {}", next_st)
         return next_st
 
     return jax.lax.while_loop(cond, body, st)
 
 
-plt.xlim(-0.8, 0.8)
-plt.ylim(-0.8, 0.8)
-explore_map(plt.gcf(), HHmap(0.125, 0.1, 1e-12), 500)
-plt.show()
+E = 1 / 10
 
-# adv = state_advancer(HHsysder)
-# local = State(jnp.array(0.0), jnp.array([0.8, 0.8]), jnp.array([0.0, 0.0]))
-# for i in range(100):
-#     local = adv(local, 0.1)
-#     print(local)
+plt.xlim(-1, 1)
+plt.ylim(-1, 1)
+evolution = explore_map(
+    plt.gcf(),
+    HHmap(E, 0.1, 1e-12),
+    128,
+    xs=[-0.4, -0.3, -0.25, -0.10, -0.05, 0.05, 0.10, 0.25, 0.3, 0.4],
+    ys=[-0.25, -0.10, 0.0, 0.10, 0.25],
+)
+# plt.show()
+# input()
 
-# dstate = HHsysder()
-# func = lambda y, t: dstate(y)
-# y0 = (jnp.array(0.0), jnp.array([0.8, 0.8]), jnp.array([0.0, 0.0]))
-# E = HHham(y0)
-# print("E = ", E)
-# t = jnp.linspace(0, 100, 1000)
-# sol = odeint(func, y0, t)
-# xys = sol[1]
-#
-#
+
+alt.themes.enable("fivethirtyeight")
+selector = alt.selection_point(fields=["id"])
+
+section_data = []
+for ev, evol in enumerate(np.asarray(evolution)):
+    for id, (y, py) in enumerate(evol):
+        section_data.append({"ev": ev, "id": id, "y": y, "py": py})
+
+section = (
+    alt.Chart(alt.Data(values=section_data))
+    .mark_circle(size=10)
+    .encode(
+        x="y:Q",
+        y="py:Q",
+        color=alt.condition(
+            selector,
+            alt.Color("id:N").scale(scheme="dark2").legend(None),
+            alt.value("lightgray"),
+        ),
+    )
+    .add_params(selector)
+    .properties(width=400, height=400)
+    .interactive()
+)
+
+dstate = HHsysder()
+func = lambda y, t: dstate(y)
+t = jnp.linspace(0, 50, 256)
+
+traj_data = []
+for id, (y, py) in enumerate(evolution[0]):
+    y0 = section_to_state(E, y, py)
+    sol = odeint(func, y0, t)
+    xys = np.asarray(sol[1])
+    for i in range(len(xys)):
+        traj_data.append({"t": i, "id": id, "x": xys[i, 0], "y": xys[i, 1]})
+
+traj = (
+    alt.Chart(alt.Data(values=traj_data))
+    .mark_trail()
+    .encode(
+        x="x:Q",
+        y="y:Q",
+        order="t:N",
+        color=alt.Color("id:N").scale(scheme="dark2").legend(None),
+        size=alt.Size("t:N").legend(None),
+    )
+    .transform_filter(selector)
+    .add_params(selector)
+    .properties(width=400, height=400)
+    .interactive()
+)
+
+
+chart = section | traj
+chart.save("__demo.html")
+# chart.save("__demo.json")
+
+
 # # Animate
 #
 # xlim = (-2, 2)

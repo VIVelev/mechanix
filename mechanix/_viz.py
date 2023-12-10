@@ -11,6 +11,14 @@ from ._utils import Array
 
 def cartesian_product(xs, ys):
     """Computes the cartesian product of two arrays."""
+    len_xs, len_ys = len(xs), len(ys)
+    maxlen = max(len_xs, len_ys)
+    if len_xs < maxlen:
+        xs = jnp.tile(xs, maxlen // len_xs)
+    else:
+        ys = jnp.tile(ys, maxlen // len_ys)
+
+    assert len(xs) == len(ys), "len(xs), len(ys) should not be co-prime"
     return jnp.transpose(jnp.array([jnp.tile(xs, len(ys)), jnp.repeat(ys, len(xs))]))
 
 
@@ -21,7 +29,8 @@ def explore_map(
     n: int,
     *,
     interactive=False,
-    grid_size=16,
+    xs=None,
+    ys=None,
 ):
     ax = fig.gca()
     ax.autoscale(False)
@@ -31,17 +40,19 @@ def explore_map(
     # Make a color for each time step (0, ..., n)
     # And enough to cover each trajectory
     colors = np.tile(list(mcolors.XKCD_COLORS.values()), n).reshape(n, -1)
-    if not interactive:
-        assert colors.shape[1] >= grid_size**2
 
     def set_samples():
         nonlocal init_samples
-        xlim, ylim = ax.get_xlim(), ax.get_ylim()
-        xs, ys = (
-            jnp.linspace(*xlim, grid_size),
-            jnp.linspace(*ylim, grid_size),
-        )
-        init_samples = cartesian_product(xs, ys)
+        if xs is None and ys is None:
+            xlim, ylim = ax.get_xlim(), ax.get_ylim()
+            grid_size = 128
+            _xs, _ys = (
+                jnp.linspace(*xlim, grid_size),
+                jnp.linspace(*ylim, grid_size),
+            )
+        else:
+            _xs, _ys = jnp.array(xs), jnp.array(ys)
+        init_samples = cartesian_product(_xs, _ys)
 
     def compute():
         nonlocal evolution
@@ -105,3 +116,4 @@ def explore_map(
         set_samples()
         compute()
         plot()
+        return evolution
