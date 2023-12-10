@@ -81,9 +81,9 @@ def driven_pendulum_map(m, g, l, A, omega):
 m = 1.0  # kg
 g = 9.8  # m/s^2
 l = 1.0  # m
-A = 0.05  # m
+A = 0.2  # m
 omega0 = np.sqrt(g / l)
-omega = 4.2 * omega0  # Hz
+omega = 10.1 * omega0  # Hz
 n = 64
 
 f = plt.figure()
@@ -91,13 +91,13 @@ plt.xlim(-jnp.pi, jnp.pi)
 plt.ylim(-20, 20)
 plt.xlabel(r"$\theta$")
 plt.ylabel(r"$p_{\theta}$")
-explore_map(f, driven_pendulum_map(m, g, l, A, omega), n)
+explore_map(f, driven_pendulum_map(m, g, l, A, omega), n, interactive=False)
 f.show()
 
 # Make some particular simulation
 dstate = jax.jit(H_pend_sysder(m, g, l, A, omega))
 func = lambda y, t: dstate(y)
-y0 = State(jnp.array(0.0), jnp.array([0.0]), jnp.array([7.0]))
+y0 = State(jnp.array(0.0), jnp.array([-3.0]), jnp.array([1.0]))
 t = jnp.linspace(0.0, 100 * (2 * jnp.pi / omega), 10_000)
 locals = odeint(func, y0, t)
 ys = periodic_drive(A, omega, 0.0)

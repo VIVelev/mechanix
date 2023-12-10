@@ -17,7 +17,7 @@ def cartesian_product(xs, ys):
 # NOTE: For interactive use cases this may be a bit slow ;(
 def explore_map(
     fig: plt.Figure,
-    sys_map: Callable[[Array], Array],
+    sysmap: Callable[[Array], Array],
     n: int,
     *,
     interactive=False,
@@ -25,9 +25,9 @@ def explore_map(
 ):
     ax = fig.gca()
     ax.autoscale(False)
-    vmap = jax.vmap(sys_map)
-    init_samples = jnp.empty((0, 2), dtype=jnp.float_)
-    evolution = jnp.empty((0, 0, 2), dtype=jnp.float_)
+    sysmap = jax.vmap(sysmap)
+    init_samples = jnp.empty((0, 2), dtype=float)
+    evolution = jnp.empty((0, 0, 2), dtype=float)
     # Make a color for each time step (0, ..., n)
     # And enough to cover each trajectory
     colors = np.tile(list(mcolors.XKCD_COLORS.values()), n).reshape(n, -1)
@@ -47,7 +47,7 @@ def explore_map(
         nonlocal evolution
 
         def body(carry, _):
-            out = vmap(carry)
+            out = sysmap(carry)
             return out, out
 
         _, evolution = jax.lax.scan(body, init_samples, jnp.arange(n), length=n)
@@ -57,7 +57,7 @@ def explore_map(
             evolution[:, :, 0].flatten(),
             evolution[:, :, 1].flatten(),
             c=colors[:, : len(init_samples)].flatten(),
-            s=1,
+            s=0.1,
         )
 
     # BUG: There is some issue with color ("cs")
@@ -68,7 +68,7 @@ def explore_map(
             xs = evolution[:j, :, 0].flatten()
             ys = evolution[:j, :, 1].flatten()
             cs = colors[:j, :k].flatten()
-            ax.scatter(xs, ys, c=cs, s=1)
+            ax.scatter(xs, ys, c=cs, s=0.1)
             plt.pause(0.001)
 
     def onclick(event):

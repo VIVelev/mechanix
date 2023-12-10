@@ -20,12 +20,8 @@ def state_advancer(get_dstate, *args):
     # JIT the derivative function
     dstate = jax.jit(get_dstate(*args))
 
-    def advance(y0, tf, *, n=100):
-        h = tf / jnp.array(n)
-        return jax.lax.while_loop(
-            lambda y: y[0] < tf,
-            lambda y: rk4step(dstate, y, h),
-            y0,
-        )
+    def advance(y0, dt, *, n=2):
+        h = dt / jnp.array(n)
+        return jax.lax.fori_loop(0, n + 1, lambda _, y: rk4step(dstate, y, h), y0)
 
     return advance
