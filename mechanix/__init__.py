@@ -21,5 +21,5 @@ from ._utils import (
     robust_norm as robust_norm,
 )
 from ._viz import (
-    explore_map as explore_map,
+    evolve_map as evolve_map,
 )

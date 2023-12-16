@@ -1,10 +1,14 @@
+from typing import Callable
+
 import jax
 import jax.numpy as jnp
+
+from ._utils import State
 
 # TODO: Implement a generic ode solver
 
 
-def rk4step(f, y0, h):
+def rk4step(f: Callable[[State], State], y0: State, h: float) -> State:
     k1 = f(y0)
     k2 = f(y0 + h * k1 / 2)
     k3 = f(y0 + h * k2 / 2)
