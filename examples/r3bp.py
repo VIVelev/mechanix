@@ -52,6 +52,8 @@ def V(a, GM0, GM1, m):
         # Calculate the distance b/w the third body and the two bodies
         r0 = jnp.sqrt((x - x0) ** 2 + (y - y0) ** 2)
         r1 = jnp.sqrt((x - x1) ** 2 + (y - y1) ** 2)
+        r0 = jax.lax.select(jnp.isclose(r0, 0.0), 1.0, r0)
+        r1 = jax.lax.select(jnp.isclose(r1, 0.0), 1.0, r1)
 
         # Calculate the potential
         return -GM0 * m / r0 - GM1 * m / r1
@@ -60,20 +62,29 @@ def V(a, GM0, GM1, m):
 
 
 # Simulation Parameters
-m = 1.0
-a = 2.0
-GM0 = 1.0
-GM1 = 1.0
+m = 1
+a = 1
+GM0 = 1
+GM1 = GM0 * 0.005
+# Time parameters:
 T0 = 0.0
-Tf = 10.0
-DT = 0.01  # 1 second
+Tf = 100.0
+DT = 0.01
 Ts = jnp.arange(T0, Tf, DT)
+
+# Distance to the COM of the Earth-Moon system:
+a0, a1 = get_a0_a1(a, GM0, GM1)
+print("a0, a1:", a0, a1)
+# Angular velocity of the Earth-Moon system:
+Omega = get_Omega(a, GM0, GM1)
+print("Omega:", Omega)
 
 # Initial Values
 t0 = jnp.array(T0)
-q0 = jnp.array([a, 0.0])
-v0 = jnp.array([0.0, 0.0])
+q0 = jnp.array([-a0, -0.99 * a])
+v0 = jnp.array([Omega, 0.0])
 init_local = (t0, q0, v0)
+print("q0, v0:", init_local[1], init_local[2])
 
 L = L0(m, V(a, GM0, GM1, m))
 dlocal = jax.jit(Lagrangian_to_state_derivative(L))
@@ -94,9 +105,6 @@ _, X, Vs = locals
 X = np.asarray(X)
 Vs = np.asarray(Vs)
 E = np.asarray(energies)
-
-a0, a1 = get_a0_a1(a, GM0, GM1)
-Omega = get_Omega(a, GM0, GM1)
 
 fig, ax = plt.subplots(1, 2, figsize=(16, 8))
 ax[0].axis("off")

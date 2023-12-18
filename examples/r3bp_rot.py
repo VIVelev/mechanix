@@ -8,8 +8,6 @@ from mechanix import (
     Lagrangian_to_energy,
     Lagrangian_to_state_derivative,
     compose,
-    p2r,
-    r2p,
 )
 
 jax.config.update("jax_enable_x64", True)
@@ -61,6 +59,8 @@ def V(a, GM0, GM1, m):
         # Calculate the distance b/w the third body and the two bodies
         r0 = jnp.sqrt((x - x0) ** 2 + (y - y0) ** 2)
         r1 = jnp.sqrt((x - x1) ** 2 + (y - y1) ** 2)
+        r0 = jax.lax.select(jnp.isclose(r0, 0.0), 1.0, r0)
+        r1 = jax.lax.select(jnp.isclose(r1, 0.0), 1.0, r1)
 
         # Calculate the potential
         return -GM0 * m / r0 - GM1 * m / r1
@@ -69,59 +69,51 @@ def V(a, GM0, GM1, m):
 
 
 def rot(omega):
-    """Rotation in polar coordinates (since it's easy to define :))."""
-
     def f(local):
-        t, [r, theta], _ = local
-        return jnp.array([r, theta + omega * t])
+        t, [x, y], _ = local
+        return jnp.array([x, y]) @ jnp.array(
+            [
+                [jnp.cos(omega * t), -jnp.sin(omega * t)],
+                [jnp.sin(omega * t), jnp.cos(omega * t)],
+            ]
+        )
 
     return f
 
 
 # Simulation Parameters
-# A satellite of mass m orbits the Earth and Moon
-# Voyager 1 mass:
-m = 721.9  # kg
-# Distance between the Earth and the Moon:
-a = 384400e3  # m
-# Gravitational constants:
-G = 6.67408e-11  # m^3 kg^-1 s^-2
-# Masses of the Earth and Moon (times G):
-GM0 = G * 5.972e24  # m^3 s^-2
-GM1 = G * 7.34767309e22  # m^3 s^-2
+m = 1
+a = 1
+GM0 = 1
+GM1 = GM0 * 0.005
 # Time parameters:
 T0 = 0.0
-Tf = 2 * np.pi * jnp.sqrt(a**3 / (GM0 + GM1))
-DT = 1.0  # 1 second
+Tf = 100.0
+DT = 0.01
 Ts = jnp.arange(T0, Tf, DT)
 
 # Distance to the COM of the Earth-Moon system:
 a0, a1 = get_a0_a1(a, GM0, GM1)
+print("a0, a1:", a0, a1)
+# Angular velocity of the Earth-Moon system:
+Omega = get_Omega(a, GM0, GM1)
+print("Omega:", Omega)
 
 # Initial Values
 t0 = jnp.array(T0)
-# Earth radius (launch site):
-d = 6371e3  # m
-q0 = jnp.array([-a0 + d, 0.0])
-# Escape velocity:
-v_esc = jnp.sqrt(2 * GM0 / d)
-# Pick a direction:
-v0 = jnp.array([0.9, 0.1])
-# Scale the velocity to the 98% escape velocity:
-v0 = 0.98 * v_esc * v0 / jnp.linalg.norm(v0)
+q0 = jnp.array([-a0, -0.99 * a])
+v0 = jnp.array([0.0, 0.0])
 init_local = (t0, q0, v0)
+print("q0, v0:", init_local[1], init_local[2])
 
-L = compose(
-    L0(m, V(a, GM0, GM1, m)),
-    F2C(p2r),
-    F2C(rot(get_Omega(a, GM0, GM1))),
-    F2C(r2p),
-)
+rotation = F2C(rot(-Omega))
+L = compose(L0(m, V(a, GM0, GM1, m)), rotation)
 dlocal = jax.jit(Lagrangian_to_state_derivative(L))
-energy = jax.jit(jax.vmap(Lagrangian_to_energy(L)))
+energy = jax.jit(Lagrangian_to_energy(L))
+print("Energy:", energy(init_local))
 
 locals = odeint(lambda y, t: dlocal(y), init_local, Ts)
-energies = energy(locals)
+energies = jax.vmap(energy)(locals)
 
 
 # -----------------------------------------------
@@ -138,11 +130,11 @@ _, X, Vs = locals
 X = np.asarray(X)
 Vs = np.asarray(Vs)
 E = np.asarray(energies)
-J = np.mean(E)
+E_mean = np.mean(E)
 
 fig, ax = plt.subplots(1, 2, figsize=(16, 8))
 x_lim, y_lim = a * 1.5, a * 1.5
-ax[0].axis("off")
+ax[0].grid(True)
 ax[0].set_xlim(-x_lim, x_lim)
 ax[0].set_ylim(-y_lim, y_lim)
 
@@ -158,15 +150,16 @@ xys = jnp.stack([xs, ys], axis=-1)
 vs = jnp.zeros_like(xys)
 ts = jnp.zeros((sample_size, sample_size))
 states = (ts, xys, vs)
-zs = np.array(jax.vmap(energy)(states))
+zs = np.array(jax.vmap(jax.vmap(energy))(states))
 
 # Now get the zero-velocity curves
-zs[zs < J] = np.nan
-ax[0].contourf(xs, ys, zs, cmap="Greys")
+zs[zs <= zs.mean()] = np.nan
+ax[0].contour(xs, ys, zs, cmap="RdBu")
 
 
 # Plot the first two bodies
-ax[0].scatter([-a0, a1], [0.0, 0.0], c=[GM0, GM1])
+total = (GM0 + GM1) / 1000
+ax[0].scatter([-a0, a1], [0.0, 0.0], s=[GM0 / total, GM1 / total], c="gray")
 
 # Plot the path of the third body
 (traj,) = ax[0].plot([], [], c="k")
@@ -179,7 +172,7 @@ body = ax[0].scatter([], [], c="k")
 
 # Energy plot
 ax[1].set_xlim(T0, Tf)
-ax[1].set_ylim(J * 2, 1)
+ax[1].set_ylim(E_mean * 2, np.abs(E_mean))
 ax[1].set_xlabel("Time")
 ax[1].set_ylabel("Energy")
 (energy_line,) = ax[1].plot([], [], c="k")
@@ -199,7 +192,7 @@ def animate(i):
 anim = FuncAnimation(
     fig,
     animate,
-    frames=range(1, len(Ts), 1000),
+    frames=range(1, len(Ts), 20),
     interval=20,
     blit=False,
 )

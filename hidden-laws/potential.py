@@ -1,7 +1,7 @@
 import altair as alt
 import numpy as np
+from hh import HHpotential
 from matplotlib import pyplot as plt
-from utils import HHpotential
 
 alt.themes.enable("fivethirtyeight")
 plt.ion()

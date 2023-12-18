@@ -1,115 +1,99 @@
-from functools import reduce
+from functools import partial
 
 import altair as alt
+import jax
 import jax.numpy as jnp
+import matplotlib.pyplot as plt
 import numpy as np
 from jax.experimental.ode import odeint
-from utils import HHmap, HHsysder, section_to_state
+from r3bp import (
+    R3BPmap,
+    R3BPsysder,
+    section_to_state as r3bp_section_to_state,
+)
+from tqdm import tqdm
 
-from mechanix import evolve_map
+from mechanix import evolve_map, explore_map
 
+jax.config.update("jax_enable_x64", True)
 alt.themes.enable("fivethirtyeight")
+plt.style.use("dark_background")
+
+NUM_STEPS = 1024
 
 
-def get_domain(xfield, yfield, data, *, scale=1.1):
-    min_predicates = lambda m, c: c if c <= m else m
-    max_predicates = lambda m, c: c if c >= m else m
-    xs = list(map(lambda x: x[xfield], data))
-    ys = list(map(lambda x: x[yfield], data))
-    min_x = reduce(min_predicates, xs) * scale
-    max_x = reduce(max_predicates, xs) * scale
-    min_y = reduce(min_predicates, ys) * scale
-    max_y = reduce(max_predicates, ys) * scale
-    return [min_x, max_x], [min_y, max_y]
-
-
-def section(xs, ys, sysmap, *, num_steps=1024):
-    selector = alt.selection_point(fields=["id"])
-
-    evolution = evolve_map(xs, ys, sysmap, num_steps)
+def section(
+    xys,
+    sysmap,
+    selector,
+    cutoff_step,
+    *,
+    num_steps=NUM_STEPS,
+    xlabel="x",
+    xdomain=(-1, 1),
+    ylabel="y",
+    ydomain=(-1, 1),
+):
+    print("Evolving section...")
+    evolution = evolve_map(xys, sysmap, num_steps)
+    print("Done.")
     section_data = []
     for ev, evol in enumerate(np.asarray(evolution)):
-        for id, (y, py) in enumerate(evol):
-            section_data.append({"ev": ev, "id": id, "y": y, "py": py})
+        for id, (x, y) in enumerate(evol):
+            section_data.append({"t": ev, "id": id, xlabel: x, ylabel: y})
 
-    xdomain, ydomain = get_domain("y", "py", section_data)
     return (
         alt.Chart(alt.Data(values=section_data))
         .mark_circle(size=10)
         .encode(
-            x=alt.X("y:Q").scale(domain=xdomain).axis(titleColor="#ddd"),
-            y=alt.Y("py:Q").scale(domain=ydomain).axis(titleColor="#ddd"),
+            x=alt.X(xlabel + ":Q").scale(domain=xdomain),
+            y=alt.Y(ylabel + ":Q").scale(domain=ydomain),
             color=alt.condition(
                 selector,
                 alt.Color("id:N").scale(scheme="paired").legend(None),
                 alt.value("#424242"),
             ),
         )
-        .add_params(selector)
-        .properties(width=400, height=400)
-    )
-
-
-def explore_map_traj(
-    xs,
-    ys,
-    sysmap,
-    get_sysder,
-    section_to_state,
-    *,
-    num_steps=1024,
-    final_time=200,
-):
-    selector = alt.selection_point(fields=["id"])
-    step_slider = alt.binding_range(min=0, max=num_steps, step=1, name="Step")
-    cutoff_step = alt.param(bind=step_slider, value=num_steps / 4)
-
-    evolution = evolve_map(xs, ys, sysmap, num_steps)
-    section_data = []
-    for ev, evol in enumerate(np.asarray(evolution)):
-        for id, (y, py) in enumerate(evol):
-            section_data.append({"ev": ev, "id": id, "y": y, "py": py})
-
-    xdomain, ydomain = get_domain("y", "py", section_data)
-    section = (
-        alt.Chart(alt.Data(values=section_data))
-        .mark_circle(size=10)
-        .encode(
-            x=alt.X("y:Q").scale(domain=xdomain).axis(titleColor="#ddd"),
-            y=alt.Y("py:Q").scale(domain=ydomain).axis(titleColor="#ddd"),
-            color=alt.condition(
-                selector,
-                alt.Color("id:N").scale(scheme="paired").legend(None),
-                alt.value("#424242"),
-            ),
-        )
-        .transform_filter(alt.datum.ev < cutoff_step)
+        .transform_filter(alt.datum.t < cutoff_step)
         .add_params(selector, cutoff_step)
         .properties(width=400, height=400)
     )
 
+
+def trajectories(
+    xys,
+    get_sysder,
+    section_to_state,
+    selector,
+    cutoff_step,
+    *,
+    num_steps=NUM_STEPS,
+    final_time=200,
+    xdomain=(-1, 1),
+    ydomain=(-1, 1),
+):
     dstate = get_sysder()
     func = lambda y, t: dstate(y)
     t = jnp.linspace(0, final_time, num_steps)
     traj_data = []
-    for id, (y, py) in enumerate(evolution[0]):
-        y0 = section_to_state(E, y, py)
+    print("Evolving trajectories...")
+    for id, (x, y) in enumerate(tqdm(xys)):
+        y0 = section_to_state(x, y)
         if jnp.any(jnp.isnan(y0[2])):
-            print(y, py)
             continue
 
         sol = odeint(func, y0, t)
         xys = np.asarray(sol[1])
         for i in range(len(xys)):
             traj_data.append({"t": i, "id": id, "x": xys[i, 0], "y": xys[i, 1]})
+    print("Done.")
 
-    xdomain, ydomain = get_domain("x", "y", traj_data)
-    traj = (
+    return (
         alt.Chart(alt.Data(values=traj_data))
         .mark_trail()
         .encode(
-            x=alt.X("x:Q").scale(domain=xdomain).axis(titleColor="#ddd"),
-            y=alt.Y("y:Q").scale(domain=ydomain).axis(titleColor="#ddd"),
+            x=alt.X("x:Q").scale(domain=xdomain),
+            y=alt.Y("y:Q").scale(domain=ydomain),
             order="t:N",
             color=alt.Color("id:N").scale(scheme="paired").legend(None),
         )
@@ -119,18 +103,52 @@ def explore_map_traj(
         .properties(width=400, height=400)
     )
 
-    return (section.interactive() | traj.interactive()).configure(
-        background="#151515", view=dict(stroke=None)
-    )
+
+selector = alt.selection_point(fields=["id"])
+step_slider = alt.binding_range(min=0, max=NUM_STEPS, step=1, name="Step")
+cutoff_step = alt.param(bind=step_slider, value=NUM_STEPS // 4)
+
+# E = 1 / 8
+# xys = cartesian_product([-0.3, 0.0, 0.1, 0.2], [-0.25, -0.05, 0.0, 0.3])
+# s = section(
+#     xys,
+#     HHmap(E, 0.01, 1e-12),
+#     selector,
+#     cutoff_step,
+#     xlabel="y",
+#     ylabel="py",
+# ).interactive()
+# t = trajectories(xys, HHsysder, partial(hh_section_to_state, E)).interactive()
+
+J = 3
+fig = plt.figure(1)
+fig.gca().set_xlim(-1, 1)
+fig.gca().set_ylim(-1, 1)
+xys = explore_map(plt.figure(1), R3BPmap(J, 0.01, 1e-12), NUM_STEPS)
+# np.save("samples.npy", xys)
+xys = np.load("samples.npy")
+print(xys.shape)
+s = section(
+    xys,
+    R3BPmap(J, 0.01, 1e-12),
+    selector,
+    cutoff_step,
+    xlabel="y",
+    ylabel="py",
+).interactive()
+t = trajectories(
+    xys,
+    R3BPsysder,
+    partial(r3bp_section_to_state, J),
+    selector,
+    cutoff_step,
+).interactive()
 
 
-E = 1 / 8
-chart = explore_map_traj(
-    [-0.3, 0.0, 0.1, 0.2],
-    [-0.25, -0.05, 0.0, 0.3],
-    HHmap(E, 0.01, 1e-12),
-    HHsysder,
-    section_to_state,
+chart = (s | t).configure(
+    background="#151515",
+    axis=dict(titleColor="#ddd"),
+    view=dict(stroke=None),
 )
 chart.save("__main.html")
 chart.save("__main.json")

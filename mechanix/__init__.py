@@ -22,4 +22,5 @@ from ._utils import (
 )
 from ._viz import (
     evolve_map as evolve_map,
+    explore_map as explore_map,
 )

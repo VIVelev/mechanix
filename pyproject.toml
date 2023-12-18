@@ -15,7 +15,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: Implementation :: CPython",
 ]
-dependencies = ["jax", "tree-math"]
+dependencies = ["jax", "tree-math", "tqdm"]
 
 [build-system]
 requires = ["hatchling"]

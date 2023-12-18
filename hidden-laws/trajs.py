@@ -2,8 +2,8 @@ import altair as alt
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
+from hh import HHpotential, HHsysder, section_to_state
 from jax.experimental.ode import odeint
-from utils import HHpotential, HHsysder, section_to_state
 
 alt.themes.enable("fivethirtyeight")
 

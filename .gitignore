@@ -1,3 +1,6 @@
+# Numpy
+*.npy
+
 # Custom ignore
 __*.json
 __*.html

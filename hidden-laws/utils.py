@@ -1,50 +1,31 @@
+from functools import reduce
+
 import jax
 import jax.numpy as jnp
 
-from mechanix import Hamiltonian_to_state_derivative, State, state_advancer
+
+def cartesian_product(xs, ys):
+    """Computes the cartesian product of two arrays."""
+    xs, ys = jnp.array(xs), jnp.array(ys)
+    len_xs, len_ys = len(xs), len(ys)
+    maxlen = max(len_xs, len_ys)
+    if len_xs < maxlen:
+        xs = jnp.tile(xs, maxlen // len_xs)
+    else:
+        ys = jnp.tile(ys, maxlen // len_ys)
+
+    assert len(xs) == len(ys), "len(xs), len(ys) should not be co-prime"
+    return jnp.transpose(jnp.array([jnp.tile(xs, len(ys)), jnp.repeat(ys, len(xs))]))
 
 
-def HHpotential(x, y):
-    """The Henon-Heiles potential energy."""
-    return (1 / 2) * (x**2 + y**2) + x**2 * y - (1 / 3) * y**3
+def get_in(col, path):
+    return reduce(lambda c, i: c[i], path, col)
 
 
-def HHham(local):
-    """The Henon-Heiles Hamiltonian."""
-    _, [x, y], [px, py] = local
-    return (1 / 2) * (px**2 + py**2) + HHpotential(x, y)
-
-
-def HHsysder():
-    return Hamiltonian_to_state_derivative(HHham)
-
-
-def HHmap(E, dt, sec_eps):
-    adv = state_advancer(HHsysder)
-
-    def sysmap(qp):
-        y, py = qp
-        st = section_to_state(E, y, py)
-
-        cross_st = find_next_crossing(st, dt, adv, sec_eps)
-        y, py = cross_st[1][1], cross_st[2][1]
-        return jnp.array([y, py])
-
-    return sysmap
-
-
-def section_to_state(E, y, py):
-    d = E - HHpotential(0, y) - (1 / 2) * py**2
-    d = jax.lax.select(d <= 0, jnp.nan, d)
-
-    px = jnp.sqrt(2 * d)
-    return State(jnp.array(0.0), jnp.array([0.0, y]), jnp.array([px, py]))
-
-
-def find_next_crossing(st, dt, adv, sec_eps):
+def find_next_crossing(st, dt, adv, sec_eps, *, cross_path):
     def crossed(st, next_st):
-        x = st[1][0]
-        next_x = next_st[1][0]
+        x = get_in(st, cross_path)
+        next_x = get_in(next_st, cross_path)
         has_crossed = jnp.logical_and(x < 0, next_x > 0)
         is_nan = jnp.logical_or(jnp.isnan(x), jnp.isnan(next_x))
         return jnp.logical_or(has_crossed, is_nan)
@@ -55,12 +36,14 @@ def find_next_crossing(st, dt, adv, sec_eps):
         (st, adv(st, dt)),
     )
 
-    return refine_crossing(st, adv, sec_eps)
+    return refine_crossing(st, adv, sec_eps, cross_path=cross_path)
 
 
-def refine_crossing(st, adv, sec_eps):
+def refine_crossing(st, adv, sec_eps, *, cross_path):
+    deriv_path = [cross_path[0] + 1] + cross_path[1:]
+
     return jax.lax.while_loop(
-        lambda st: jnp.abs(st[1][0]) > sec_eps,
-        lambda st: adv(st, -st[1][0] / st[2][0]),
+        lambda st: jnp.abs(get_in(st, cross_path)) > sec_eps,
+        lambda st: adv(st, -get_in(st, cross_path) / get_in(st, deriv_path)),
         st,
     )
