@@ -16,6 +16,15 @@ def rk4step(f: Callable[[State], State], y0: State, h: float) -> State:
     return y0 + h * (k1 + 2 * k2 + 2 * k3 + k4) / 6
 
 
+def semi_implicit_eulerstep(f: Callable[[State], State], y0: State, h: float) -> State:
+    t, q, p = y0
+    _, _, dp = f(y0)
+    next_p = p + h * dp
+    _, dq, _ = f(State(t, q, next_p))
+    next_q = q + h * dq
+    return State(t + h, next_q, next_p)
+
+
 def eulerstep(f, y0, h):
     return y0 + h * f(y0)
 

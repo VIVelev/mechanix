@@ -3,6 +3,8 @@ from ._solvers import (
 )
 from ._utils import (
     F2C as F2C,
+    F2CH as F2CH,
+    F2K as F2K,
     Dt as Dt,
     Hamiltonian_to_Lagrangian as Hamiltonian_to_Lagrangian,
     Hamiltonian_to_state_derivative as Hamiltonian_to_state_derivative,

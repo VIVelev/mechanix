@@ -175,6 +175,42 @@ def F2C(F: StateFunction) -> StateFunction:
     return C
 
 
+# BUG: Hamiltonian is not same as a Lagrangian?
+def F2CH(F: StateFunction) -> StateFunction:
+    """Given a coordinate transformation (`F`)
+    return the corresponding state transformation (`C`) for a Hamiltonian system.
+    """
+
+    # NOTE: Could this be astracted as `F2C`?
+
+    jacF = jax.jacfwd(F)
+
+    def C(local: State):
+        t, _, p = local
+        p1F = jacF(local)[1]
+        return State(t, F(local), p @ jnp.linalg.pinv(p1F))
+
+    return C
+
+
+def F2K(F: StateFunction) -> StateFunction:
+    """If the transformation `F` is time varying
+    the Hamiltonian must be adjusted by adding a correction
+    to the composition of the Hamiltonian and the transformation.
+    """
+
+    jacF = jax.jacfwd(F)
+
+    def K(local: State):
+        _, _, p = local
+        jacF_ = jacF(local)
+        p0F = jacF_[0]
+        p1F = jacF_[1]
+        return -(p @ jnp.linalg.pinv(p1F)) @ p0F
+
+    return K
+
+
 def Dt(F: StateFunction) -> StateFunction:
     """Return the Total Time Derivatice of F - a local-tuple function.
 
