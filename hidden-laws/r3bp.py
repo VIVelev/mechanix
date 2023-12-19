@@ -88,7 +88,6 @@ GM1 = GM0 * 0.005
 
 # Distance to the COM of the Earth-Moon system:
 a0, a1 = get_a0_a1(a, GM0, GM1)
-print("a0, a1:", a0, a1)
 # Angular velocity of the Earth-Moon system:
 Omega = get_Omega(a, GM0, GM1)
 

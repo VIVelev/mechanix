@@ -153,8 +153,13 @@ states = (ts, xys, vs)
 zs = np.array(jax.vmap(jax.vmap(energy))(states))
 
 # Now get the zero-velocity curves
-zs[zs <= zs.mean()] = np.nan
-ax[0].contour(xs, ys, zs, cmap="RdBu")
+ax[0].contour(
+    xs,
+    ys,
+    zs,
+    levels=np.concatenate((np.linspace(-1.8, -1.6, 3), np.linspace(-1.55, -1.45, 10))),
+    cmap="RdBu",
+)
 
 
 # Plot the first two bodies

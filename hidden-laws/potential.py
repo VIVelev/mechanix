@@ -1,35 +1,120 @@
+import operator
+from collections import defaultdict
+from functools import reduce
+from numbers import Number
+
 import altair as alt
+import jax
+import jax.numpy as jnp
 import numpy as np
-from hh import HHpotential
 from matplotlib import pyplot as plt
+from r3bp import GM0, GM1, Jacobi, a, a0, a1
 
-alt.themes.enable("fivethirtyeight")
-plt.ion()
 
-xx, yy = np.meshgrid(np.linspace(-1, 1, 256), np.linspace(-1, 1, 256))
-vs = HHpotential(xx, yy)
-levels = [1 / 100, 1 / 40, 1 / 20, 1 / 12, 1 / 8, 1 / 6]
-cs = plt.contour(xx, yy, vs, levels)
+def contour_chart(
+    energy,
+    xlim,
+    ylim,
+    *,
+    label="Energy",
+    levels=None,
+    n=512,
+    state_func=False,
+    xdomain=(-1, 1),
+    ydomain=(-1, 1),
+):
+    if isinstance(xlim, Number):
+        xlim = (-xlim, xlim)
+    if isinstance(ylim, Number):
+        ylim = (-ylim, ylim)
 
-data = []
-for l, path in zip(levels, cs.get_paths()):
-    data.extend(
-        {"x": x, "y": y, "t": i, "Energy": l} for i, (x, y) in enumerate(path.vertices)
+    xx, yy = np.meshgrid(np.linspace(*xlim, n), np.linspace(*ylim, n))
+    if state_func:
+        xys = jnp.stack([xx, yy], axis=-1)
+        vs = jnp.zeros_like(xys)
+        ts = jnp.zeros((n, n))
+        states = (ts, xys, vs)
+        zs = np.array(jax.vmap(jax.vmap(energy))(states))
+    else:
+        zs = energy(xx, yy)
+
+    if levels is not None:
+        cs = plt.contour(xx, yy, zs, levels=levels)
+    else:
+        cs = plt.contour(xx, yy, zs)
+        levels = cs.levels
+
+    data = defaultdict(list)
+    for l, segments in zip(levels, cs.allsegs):
+        for i, segment in enumerate(segments):
+            data[i].extend(
+                {"x": x, "y": y, "t": j, label: l} for j, (x, y) in enumerate(segment)
+            )
+
+    charts = [
+        alt.Chart(alt.Data(values=cs))
+        .mark_line()
+        .encode(
+            x=alt.X("x:Q").scale(domain=xdomain),
+            y=alt.Y("y:Q").scale(domain=ydomain),
+            order="t:Q",
+            color=alt.Color(label + ":Q")
+            .scale(scheme="spectral", domain=[min(*levels), max(*levels)])
+            .legend(None),
+            tooltip=[label + ":Q"],
+        )
+        .properties(width=300, height=300)
+        .interactive()
+        for cs in data.values()
+    ]
+    return reduce(operator.add, charts)
+
+
+if __name__ == "__main__":
+    alt.themes.enable("fivethirtyeight")
+
+    # ch = contour_chart(
+    #     HHpotential,
+    #     1,
+    #     1,
+    #     levels=[1 / 100, 1 / 40, 1 / 20, 1 / 12, 1 / 8, 1 / 6],
+    #     ydomain=(-0.6, 1.1),
+    # )
+
+    ch = contour_chart(
+        Jacobi,
+        1.5 * a,
+        1.5 * a,
+        label="Jacobi",
+        levels=np.concatenate(
+            (
+                np.linspace(2.9, 3.1, 10),
+                np.linspace(3.2, 3.6, 3),
+            )
+        ),
+        state_func=True,
+        xdomain=(-1.2 * a, 1.2 * a),
+        ydomain=(-1.2 * a, 1.2 * a),
     )
-
-ch = (
-    alt.Chart(alt.Data(values=data))
-    .mark_line()
-    .encode(
-        x=alt.X("x:Q").axis(titleColor="#ddd"),
-        y=alt.Y("y:Q").axis(titleColor="#ddd").scale(domain=[-0.6, 1.1]),
-        order="t:Q",
-        color=alt.Color("Energy:Q").scale(scheme="spectral").legend(None),
-        tooltip=["Energy:Q"],
+    total = (GM0 + GM1) / 1000
+    bodies = (
+        alt.Chart(
+            alt.Data(
+                values=[
+                    {"x": -a0, "y": 0, "mass": GM0 / total},
+                    {"x": a1, "y": 0, "mass": GM1 / total},
+                ]
+            )
+        )
+        .mark_circle()
+        .encode(x="x:Q", y="y:Q", size=alt.Size("mass:Q").legend(None))
     )
-    .interactive()
-    .properties(width=300, height=300)
-    .configure(background="#151515", view=dict(stroke=None))
-)
-ch.save("__potential.html")
-ch.save("__potential.json")
+    ch = ch + bodies
+
+    ch = ch.configure(
+        background="#151515",
+        axis=dict(titleColor="#ddd"),
+        view=dict(stroke=None),
+    )
+    ch.save("__potential.html")
+    ch.save("__potential.json")
