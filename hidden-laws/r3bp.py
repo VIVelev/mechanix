@@ -12,8 +12,8 @@ from mechanix import (
 )
 
 
-def L0(m, V):
-    """Langrangiang for the third particle of mass `m` moving in a
+def L3rd(m, V):
+    """Lagrangian for the third particle of mass `m` moving in a
     field derived from a time-varying gravitationa potential `V`.
     """
 
@@ -58,8 +58,6 @@ def V(a, GM0, GM1, m):
         # Calculate the distance b/w the third body and the two bodies
         r0 = jnp.sqrt((x - x0) ** 2 + (y - y0) ** 2)
         r1 = jnp.sqrt((x - x1) ** 2 + (y - y1) ** 2)
-        r0 = jax.lax.select(jnp.isclose(r0, 0.0), 1.0, r0)
-        r1 = jax.lax.select(jnp.isclose(r1, 0.0), 1.0, r1)
 
         # Calculate the potential
         return -GM0 * m / r0 - GM1 * m / r1
@@ -67,15 +65,17 @@ def V(a, GM0, GM1, m):
     return f
 
 
-def rot(omega):
+def rotation(omega):
+    """Rotation by `omega`."""
+
     def f(local):
         t, [x, y], _ = local
-        return jnp.array([x, y]) @ jnp.array(
+        return jnp.array(
             [
                 [jnp.cos(omega * t), -jnp.sin(omega * t)],
                 [jnp.sin(omega * t), jnp.cos(omega * t)],
             ]
-        )
+        ) @ jnp.array([x, y])
 
     return f
 
@@ -86,36 +86,41 @@ a = 1
 GM0 = 1
 GM1 = GM0 * 0.005
 
-# Distance to the COM of the Earth-Moon system:
-a0, a1 = get_a0_a1(a, GM0, GM1)
-# Angular velocity of the Earth-Moon system:
-Omega = get_Omega(a, GM0, GM1)
 
-L = compose(L0(m, V(a, GM0, GM1, m)), F2C(rot(-Omega)))
-Energy = Lagrangian_to_energy(L)
-Jacobi = lambda local: -2 * Energy(local)
-
-
-def R3BPsysder():
+def R3BPsysder(a=a, m=m, GM0=GM0, GM1=GM1):
+    Omega = get_Omega(a, GM0, GM1)
+    L = compose(L3rd(m, V(a, GM0, GM1, m)), F2C(rotation(Omega)))
     return Lagrangian_to_state_derivative(L)
 
 
-def R3BPmap(J, dt, sec_eps):
-    adv = state_advancer(R3BPsysder)
+def R3BPmap(J, dt, sec_eps, *, a=a, m=m, GM0=GM0, GM1=GM1):
+    adv = state_advancer(R3BPsysder, a, m, GM0, GM1)
 
     def sysmap(qv):
         y, ydot = qv
         st = section_to_state(J, y, ydot)
 
-        cross_st = find_next_crossing(st, dt, adv, sec_eps, cross_path=[1, 0])
+        cross_st = find_next_crossing(st, dt, adv, sec_eps)
         y, ydot = cross_st[1][1], cross_st[2][1]
         return jnp.array([y, ydot])
 
     return sysmap
 
 
+# TODO: Sort out global variables
+
+# Distance to the COM of the Earth-Moon system:
+_a0, _a1 = get_a0_a1(a, GM0, GM1)
+# Angular velocity of the Earth-Moon system:
+_Omega = get_Omega(a, GM0, GM1)
+
+_L = compose(L3rd(m, V(a, GM0, GM1, m)), F2C(rotation(_Omega)))
+_Energy = Lagrangian_to_energy(_L)
+_Jacobi = lambda local: -2 * _Energy(local)
+
+
 def section_to_state(J, y, ydot):
-    j = Jacobi(State(jnp.array(0.0), jnp.array([0.0, y]), jnp.array([0.0, ydot])))
+    j = _Jacobi(State(jnp.array(0.0), jnp.array([0.0, y]), jnp.array([0.0, ydot])))
     d = J - j
     d = jax.lax.select(d >= 0, jnp.nan, d)
 

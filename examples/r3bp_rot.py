@@ -59,8 +59,6 @@ def V(a, GM0, GM1, m):
         # Calculate the distance b/w the third body and the two bodies
         r0 = jnp.sqrt((x - x0) ** 2 + (y - y0) ** 2)
         r1 = jnp.sqrt((x - x1) ** 2 + (y - y1) ** 2)
-        r0 = jax.lax.select(jnp.isclose(r0, 0.0), 1.0, r0)
-        r1 = jax.lax.select(jnp.isclose(r1, 0.0), 1.0, r1)
 
         # Calculate the potential
         return -GM0 * m / r0 - GM1 * m / r1

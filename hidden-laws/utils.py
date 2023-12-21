@@ -22,7 +22,7 @@ def get_in(col, path):
     return reduce(lambda c, i: c[i], path, col)
 
 
-def find_next_crossing(st, dt, adv, sec_eps, *, cross_path):
+def find_next_crossing(st, dt, adv, sec_eps, *, cross_path=[1, 0]):
     def crossed(st, next_st):
         x = get_in(st, cross_path)
         next_x = get_in(next_st, cross_path)
@@ -39,7 +39,7 @@ def find_next_crossing(st, dt, adv, sec_eps, *, cross_path):
     return refine_crossing(st, adv, sec_eps, cross_path=cross_path)
 
 
-def refine_crossing(st, adv, sec_eps, *, cross_path):
+def refine_crossing(st, adv, sec_eps, *, cross_path=[1, 0]):
     deriv_path = [cross_path[0] + 1] + cross_path[1:]
 
     return jax.lax.while_loop(
