@@ -1,4 +1,4 @@
-from ._solvers import (
+from ._integrators import (
     state_advancer as state_advancer,
 )
 from ._utils import (

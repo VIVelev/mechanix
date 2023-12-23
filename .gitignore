@@ -1,9 +1,7 @@
-# Numpy
-*.npy
-
-# Custom ignore
+# Large Files
 __*.json
 __*.html
+*.npy
 
 # macOS
 .DS_Store

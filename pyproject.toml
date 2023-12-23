@@ -15,7 +15,7 @@ classifiers = [
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: Implementation :: CPython",
 ]
-dependencies = ["jax", "tree-math", "tqdm"]
+dependencies = ["jax", "tree-math", "matplotlib", "altair", "tqdm"]
 
 [build-system]
 requires = ["hatchling"]
@@ -27,8 +27,6 @@ include = ["mechanix/*"]
 [tool.hatch.envs.dev]
 dependencies = [
   "jaxlib",
-  "altair",
-  "matplotlib",
 
   "pre-commit",
   "ruff",

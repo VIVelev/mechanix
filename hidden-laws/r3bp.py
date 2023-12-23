@@ -86,15 +86,24 @@ a = 1
 GM0 = 1
 GM1 = GM0 * 0.005
 
+# Distance to the COM of the Earth-Moon system:
+a0, a1 = get_a0_a1(a, GM0, GM1)
+# Angular velocity of the Earth-Moon system:
+Omega = get_Omega(a, GM0, GM1)
 
-def R3BPsysder(a=a, m=m, GM0=GM0, GM1=GM1):
+L = compose(L3rd(m, V(a, GM0, GM1, m)), F2C(rotation(Omega)))
+Energy = Lagrangian_to_energy(L)
+Jacobi = lambda local: -2 * Energy(local)
+
+
+def R3BPsysder(a, m, GM0, GM1):
     Omega = get_Omega(a, GM0, GM1)
     L = compose(L3rd(m, V(a, GM0, GM1, m)), F2C(rotation(Omega)))
     return Lagrangian_to_state_derivative(L)
 
 
-def R3BPmap(J, dt, sec_eps, *, a=a, m=m, GM0=GM0, GM1=GM1):
-    adv = state_advancer(R3BPsysder, a, m, GM0, GM1)
+def R3BPmap(J, dt, int_eps, sec_eps, *, a, m, GM0, GM1):
+    adv = state_advancer(R3BPsysder, a, m, GM0, GM1, tolerance=int_eps)
 
     def sysmap(qv):
         y, ydot = qv
@@ -107,20 +116,8 @@ def R3BPmap(J, dt, sec_eps, *, a=a, m=m, GM0=GM0, GM1=GM1):
     return sysmap
 
 
-# TODO: Sort out global variables
-
-# Distance to the COM of the Earth-Moon system:
-_a0, _a1 = get_a0_a1(a, GM0, GM1)
-# Angular velocity of the Earth-Moon system:
-_Omega = get_Omega(a, GM0, GM1)
-
-_L = compose(L3rd(m, V(a, GM0, GM1, m)), F2C(rotation(_Omega)))
-_Energy = Lagrangian_to_energy(_L)
-_Jacobi = lambda local: -2 * _Energy(local)
-
-
-def section_to_state(J, y, ydot):
-    j = _Jacobi(State(jnp.array(0.0), jnp.array([0.0, y]), jnp.array([0.0, ydot])))
+def section_to_state(J, y, ydot, *, energy=Jacobi):
+    j = energy(State(jnp.array(0.0), jnp.array([0.0, y]), jnp.array([0.0, ydot])))
     d = J - j
     d = jax.lax.select(d >= 0, jnp.nan, d)
 

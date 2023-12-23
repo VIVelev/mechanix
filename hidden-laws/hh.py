@@ -20,8 +20,8 @@ def HHsysder():
     return Hamiltonian_to_state_derivative(HHham)
 
 
-def HHmap(E, dt, sec_eps):
-    adv = state_advancer(HHsysder)
+def HHmap(E, dt, int_eps, sec_eps):
+    adv = state_advancer(HHmap, tolerance=int_eps)
 
     def sysmap(qp):
         y, py = qp

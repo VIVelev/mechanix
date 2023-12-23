@@ -10,7 +10,7 @@ def evolve_map(xys, sysmap, n):
     # NOTE: Non vmap'd version is faster!
     # Maybe due to overhead of vmap?
     sysmap = jax.jit(sysmap)
-    evolution = jnp.empty((n, 0, 2), dtype=jnp.float_)
+    evolution = jnp.empty((n, 0, 2))
 
     for xy in tqdm(xys):
         current_ev = jnp.array([xy])
@@ -27,8 +27,8 @@ def explore_map(fig, sysmap, n):
     ax.autoscale(False)
     sysmap = jax.jit(jax.vmap(sysmap))
     start_idx = 0
-    init_samples = jnp.empty((0, 2), dtype=jnp.float_)
-    evolution = jnp.empty((n, 0, 2), dtype=jnp.float_)
+    init_samples = jnp.empty((0, 2))
+    evolution = jnp.empty((n, 0, 2))
     # Make a color for each time step (0, ..., n)
     # And enough to cover each trajectory
     colors = np.tile(list(mcolors.XKCD_COLORS.values()), n).reshape(n, -1)

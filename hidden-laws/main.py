@@ -11,8 +11,10 @@ from r3bp import (
     GM1,
     R3BPmap,
     R3BPsysder,
-    _a0 as a0,
-    _a1 as a1,
+    a,
+    a0,
+    a1,
+    m,
     section_to_state as r3bp_section_to_state,
 )
 from tqdm import tqdm
@@ -20,6 +22,7 @@ from tqdm import tqdm
 from mechanix import evolve_map
 
 jax.config.update("jax_enable_x64", True)
+# jax.config.update("jax_debug_nans", True)
 alt.themes.enable("fivethirtyeight")
 plt.style.use("dark_background")
 
@@ -37,7 +40,16 @@ def section(
     xdomain=(-1, 1),
     ylabel="y",
     ydomain=(-1, 1),
+    **properties,
 ):
+    """Generate the surface-of-section using Altair, given
+    a Poincare-map `sysmap` and initial points on the section `xys`
+
+    `selector` is used to select (and highlight) section points by trajectory
+    `cutoff_step` is a bounded to a UI slider for interactively stepping
+    through the evolution
+    """
+
     print("Evolving section...")
     evolution = evolve_map(xys, sysmap, num_steps)
     print("Done.")
@@ -46,6 +58,7 @@ def section(
         for id, (x, y) in enumerate(evol):
             section_data.append({"t": ev, "id": id, xlabel: x, ylabel: y})
 
+    properties = {**dict(width=400, height=400), **properties}
     ch = (
         alt.Chart(alt.Data(values=section_data))
         .mark_circle(size=10)
@@ -59,17 +72,23 @@ def section(
             ),
         )
         .add_params(selector)
-        .properties(width=600, height=400)
+        .properties(**properties)
     )
 
     if cutoff_step is not None:
         ch = ch.transform_filter(alt.datum.t < cutoff_step).add_params(cutoff_step)
+
+    # Remove points outside the domain to speed up rendering/interactivity
+    ch = ch.transform_filter(
+        xdomain[0] <= alt.datum[xlabel] <= xdomain[1]
+    ).transform_filter(ydomain[0] <= alt.datum[ylabel] <= ydomain[1])
+
     return ch
 
 
 def trajectories(
     init_states,
-    get_sysder,
+    sysder,
     selector,
     cutoff_step,
     *,
@@ -77,9 +96,16 @@ def trajectories(
     final_time=200,
     xdomain=(-1, 1),
     ydomain=(-1, 1),
+    **properties,
 ):
-    dstate = get_sysder()
-    func = lambda y, t: dstate(y)
+    """Generate the trajectories using Altair, given
+    a state-derivative `sysder` and initial states `init_states`
+
+    `selector` is used to select (and highlight) trajectories by id
+    `cutoff_step` is a bounded to a UI slider for interctively evolving the trajectories
+    """
+
+    func = lambda y, t: sysder(y)
     t = jnp.linspace(0, final_time, num_steps)
     traj_data = []
     print("Evolving trajectories...")
@@ -90,9 +116,10 @@ def trajectories(
             traj_data.append({"t": i, "id": id, "x": xys[i, 0], "y": xys[i, 1]})
     print("Done.")
 
-    return (
+    properties = {**dict(width=400, height=400), **properties}
+    ch = (
         alt.Chart(alt.Data(values=traj_data))
-        .mark_trail()
+        .mark_line()
         .encode(
             x=alt.X("x:Q").scale(domain=xdomain),
             y=alt.Y("y:Q").scale(domain=ydomain),
@@ -102,8 +129,15 @@ def trajectories(
         .transform_filter(selector)
         .transform_filter(alt.datum.t < cutoff_step)
         .add_params(selector, cutoff_step)
-        .properties(width=400, height=400)
+        .properties(**properties)
     )
+
+    # Remove points outside the domain to speed up rendering/interactivity
+    ch = ch.transform_filter(xdomain[0] <= alt.datum.x <= xdomain[1]).transform_filter(
+        ydomain[0] <= alt.datum.y <= ydomain[1]
+    )
+
+    return ch
 
 
 selector = alt.selection_point(fields=["id"])
@@ -120,27 +154,30 @@ cutoff_step = alt.param(bind=step_slider, value=NUM_STEPS // 4)
 #     xlabel="y",
 #     ylabel="py",
 # ).interactive()
-# t = trajectories(xys, HHsysder, partial(hh_section_to_state, E)).interactive()
+# init_states = map(partial(hh_section_to_state, E), xys[:, 0], xys[:, 1])
+# t = trajectories(init_states, HHsysder(), selector, cutoff_step).interactive()
 
 J = 3.0
+
 # fig = plt.figure(1)
 # fig.gca().set_xlim(-1, 1)
 # fig.gca().set_ylim(-1, 1)
 # xys = explore_map(plt.figure(1), R3BPmap(J, 0.01, 1e-12), NUM_STEPS)
-# np.save("samples.npy", xys)
+# np.save("samples_2.npy", xys)
 
 xys = np.load("samples.npy")
 print("Loaded samples of shape: ", xys.shape)
 
 s = section(
     xys,
-    R3BPmap(J, 0.01, 1e-12),
+    R3BPmap(J, 0.01, 1e-10, 1e-10, a=a, m=m, GM0=GM0, GM1=GM1),
     selector,
     cutoff_step,
     xlabel="y",
     xdomain=(-1, 0.5),
     ylabel="py",
     ydomain=(-2.3, 2.3),
+    width=700,
 ).interactive()
 
 chart = s.configure(
@@ -154,7 +191,7 @@ chart.save("__main_section.json")
 
 t = trajectories(
     map(partial(r3bp_section_to_state, J), xys[:, 0], xys[:, 1]),
-    R3BPsysder,
+    R3BPsysder(a, m, GM0, GM1),
     selector,
     cutoff_step,
 ).interactive()
@@ -173,7 +210,7 @@ bodies = (
     .encode(x="x:Q", y="y:Q", size=alt.Size("mass:Q").legend(None))
 )
 
-chart = (s | (t + bodies)).configure(
+chart = (s | t).configure(
     background="#151515",
     axis=dict(titleColor="#ddd"),
     view=dict(stroke=None),
