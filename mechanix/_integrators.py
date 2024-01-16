@@ -13,7 +13,7 @@ from ._utils import State
 # returns a tuple of (next_state, suggested_next_step_size)
 
 
-def eulerstep(f, y0, h):
+def eulerstep(f: Callable[[State], State], y0: State, h: float) -> State:
     return y0 + h * f(y0)
 
 
@@ -111,12 +111,16 @@ def semi_implicit_eulerstep(f: Callable[[State], State], y0: State, h: float) ->
     return State(t + h, next_q, next_p)
 
 
-def state_stepper(sysder, tolerance=5e-8):
+def state_stepper(
+    sysder: Callable[[State], State], tolerance=5e-8
+) -> Callable[[State, float], State]:
     """Stepper makes a concretelly one step in time."""
     return jax.jit(partial(adaptive_rkf45step, sysder, tolerance=tolerance))
 
 
-def state_advancer(sysder, tolerance=5e-8):
+def state_advancer(
+    sysder: Callable[[State], State], tolerance=5e-8
+) -> Callable[[State, float], State]:
     """Advancer advaces the state to the specified final time,
     possibly making many steps.
     """
@@ -135,7 +139,7 @@ def state_advancer(sysder, tolerance=5e-8):
     return adv
 
 
-def odeint(sysder, tolerance):
+def odeint(sysder: Callable[[State], State], tolerance) -> jax.Array[State]:
     adv = state_advancer(sysder, tolerance=tolerance)
 
     def body(y, t):
