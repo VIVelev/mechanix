@@ -1,5 +1,7 @@
 from ._integrators import (
+    odeint as odeint,
     state_advancer as state_advancer,
+    state_stepper as state_stepper,
 )
 from ._utils import (
     F2C as F2C,

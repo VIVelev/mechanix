@@ -8,7 +8,7 @@ from mechanix import (
     Lagrangian_to_state_derivative,
     State,
     compose,
-    state_advancer,
+    state_stepper,
 )
 
 
@@ -103,13 +103,14 @@ def R3BPsysder(a, m, GM0, GM1):
 
 
 def R3BPmap(J, dt, int_eps, sec_eps, *, a, m, GM0, GM1):
-    adv = state_advancer(R3BPsysder, a, m, GM0, GM1, tolerance=int_eps)
+    sysder = R3BPsysder(a, m, GM0, GM1)
+    step = state_stepper(sysder, tolerance=int_eps)
 
     def sysmap(qv):
         y, ydot = qv
         st = section_to_state(J, y, ydot)
 
-        cross_st = find_next_crossing(st, dt, adv, sec_eps)
+        cross_st = find_next_crossing(st, dt, step, sec_eps)
         y, ydot = cross_st[1][1], cross_st[2][1]
         return jnp.array([y, ydot])
 

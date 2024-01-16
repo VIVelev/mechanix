@@ -1,6 +1,5 @@
 # Large Files
-__*.json
-__*.html
+*.json
 *.npy
 
 # macOS

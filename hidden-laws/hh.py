@@ -2,7 +2,7 @@ import jax
 import jax.numpy as jnp
 from utils import find_next_crossing
 
-from mechanix import Hamiltonian_to_state_derivative, State, state_advancer
+from mechanix import Hamiltonian_to_state_derivative, State, state_stepper
 
 
 def HHpotential(x, y):
@@ -21,13 +21,14 @@ def HHsysder():
 
 
 def HHmap(E, dt, int_eps, sec_eps):
-    adv = state_advancer(HHmap, tolerance=int_eps)
+    sysder = HHsysder()
+    step = state_stepper(sysder, tolerance=int_eps)
 
     def sysmap(qp):
         y, py = qp
         st = section_to_state(E, y, py)
 
-        cross_st = find_next_crossing(st, dt, adv, sec_eps, cross_path=[1, 0])
+        cross_st = find_next_crossing(st, dt, step, sec_eps)
         y, py = cross_st[1][1], cross_st[2][1]
         return jnp.array([y, py])
 

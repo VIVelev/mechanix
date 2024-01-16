@@ -22,7 +22,7 @@ def get_in(col, path):
     return reduce(lambda c, i: c[i], path, col)
 
 
-def find_next_crossing(st, dt, adv, sec_eps, *, cross_path=[1, 0]):
+def find_next_crossing(st, dt, step, sec_eps, *, cross_path=[1, 0]):
     def crossed(st, next_st):
         x = get_in(st, cross_path)
         next_x = get_in(next_st, cross_path)
@@ -30,20 +30,27 @@ def find_next_crossing(st, dt, adv, sec_eps, *, cross_path=[1, 0]):
         is_nan = jnp.logical_or(jnp.isnan(x), jnp.isnan(next_x))
         return jnp.logical_or(has_crossed, is_nan)
 
-    st, next_st = jax.lax.while_loop(
-        lambda val: jnp.logical_not(crossed(val[0], val[1])),
-        lambda val: (val[1], adv(val[1], dt)),
-        (st, adv(st, dt)),
-    )
+    def cond(prev_next):
+        st, (next_st, _) = prev_next
+        return jnp.logical_not(crossed(st, next_st))
 
-    return refine_crossing(st, adv, sec_eps, cross_path=cross_path)
+    def body(prev_next):
+        st, (next_st, suggested_h) = prev_next
+        st, (next_st, suggested_h) = next_st, step(next_st, suggested_h)
+        return st, (next_st, suggested_h)
+
+    st, _ = jax.lax.while_loop(cond, body, (st, step(st, dt)))
+    return refine_crossing(st, step, sec_eps, cross_path=cross_path)
 
 
-def refine_crossing(st, adv, sec_eps, *, cross_path=[1, 0]):
+def refine_crossing(st, step, sec_eps, *, cross_path=[1, 0]):
     deriv_path = [cross_path[0] + 1] + cross_path[1:]
 
-    return jax.lax.while_loop(
-        lambda st: jnp.abs(get_in(st, cross_path)) > sec_eps,
-        lambda st: adv(st, -get_in(st, cross_path) / get_in(st, deriv_path)),
-        st,
-    )
+    def cond(st):
+        return jnp.abs(get_in(st, cross_path)) > sec_eps
+
+    def body(st):
+        st, _ = step(st, -get_in(st, cross_path) / get_in(st, deriv_path))
+        return st
+
+    return jax.lax.while_loop(cond, body, st)

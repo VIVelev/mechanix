@@ -7,7 +7,10 @@ import jax.numpy as jnp
 
 from ._utils import State
 
-# TODO: Implement a generic ode solver
+# NOTE: Better abstraction could be created for integrators!
+
+# NOTE: If a method's name starts with `adaptive_`, the method
+# returns a tuple of (next_state, suggested_next_step_size)
 
 
 def eulerstep(f, y0, h):
@@ -22,7 +25,7 @@ def rk4step(f: Callable[[State], State], y0: State, h: float) -> State:
     return y0 + h * (k1 + 2 * k2 + 2 * k3 + k4) / 6
 
 
-def rkf45step(
+def adaptive_rkf45step(
     f: Callable[[State], State],
     y0: State,
     h: float,
@@ -30,10 +33,17 @@ def rkf45step(
     tolerance=5e-8,
     safety_factor=0.9,
 ) -> State:
-    """Adopted from
+    """Adaptive step size Runge-Kutta-Fehlberg Method (RKF45).
+
+    !! The actual step may be smaller then `h`
+
+    Returns:
+        y1: The state at the next time step
+        next_h: The suggested next step size
+
+    References:
+        https://maths.cnam.fr/IMG/pdf/RungeKuttaFehlbergProof.pdf
         https://github.com/gwater/RungeKuttaFehlberg.jl/blob/master/src/RungeKuttaFehlberg.jl
-    and
-        https://www.wikiwand.com/en/Runge-Kutta-Fehlberg_method
     """
 
     def calc_steps(f, y0, h):
@@ -63,26 +73,28 @@ def rkf45step(
         )
         return step_rk4, step_rk5
 
-    def l1_norm(t):
+    def tree_l1_norm(t):
         abs = jax.tree_map(lambda x: jnp.sum(jnp.abs(x)), t)
         return jax.tree_util.tree_reduce(operator.add, abs)
 
+    def suggest_h(err, h):
+        return h * safety_factor * (tolerance / err) ** (1 / 5)
+
+    def cond(st):
+        err, _, _ = st
+        return err > tolerance
+
     def body(st):
         err, h, step = st
-        h *= safety_factor * (tolerance / err) ** (1 / 5)
+        h = suggest_h(err, h)
         step_rk4, step_rk5 = calc_steps(f, y0, h)
-        err = l1_norm(step_rk4 - step_rk5)
+        err = tree_l1_norm(step_rk4 - step_rk5)
         return err, h, step_rk5
 
     step_rk4, step_rk5 = calc_steps(f, y0, h)
-    err = l1_norm(step_rk4 - step_rk5)
-
-    _, _, step_rk5 = jax.lax.while_loop(
-        lambda st: st[0] > tolerance,
-        body,
-        (err, h, step_rk5),
-    )
-    return y0 + step_rk5
+    err = tree_l1_norm(step_rk4 - step_rk5)
+    err, h, step_rk5 = jax.lax.while_loop(cond, body, (err, h, step_rk5))
+    return y0 + step_rk5, suggest_h(err, h)
 
 
 def ab2step(f: Callable[[State], State], y0: State, h: float) -> State:
@@ -99,7 +111,39 @@ def semi_implicit_eulerstep(f: Callable[[State], State], y0: State, h: float) ->
     return State(t + h, next_q, next_p)
 
 
-def state_advancer(get_sysder, *args, tolerance):
-    sysder = jax.jit(get_sysder(*args))
-    adv = partial(rkf45step, sysder, tolerance=tolerance)
+def state_stepper(sysder, tolerance=5e-8):
+    """Stepper makes a concretelly one step in time."""
+    return jax.jit(partial(adaptive_rkf45step, sysder, tolerance=tolerance))
+
+
+def state_advancer(sysder, tolerance=5e-8):
+    """Advancer advaces the state to the specified final time,
+    possibly making many steps.
+    """
+
+    step = state_stepper(sysder, tolerance=tolerance)
+
+    @jax.jit
+    def adv(y, tf):
+        return jax.lax.while_loop(
+            # The state is (next_y, suggested_next_h); see `adaptive_rkf45step`
+            lambda y_h: y_h[0][0] < tf,
+            lambda y_h: step(y_h[0], y_h[1]),
+            step(y, tf - y[0]),
+        )[0]
+
     return adv
+
+
+def odeint(sysder, tolerance):
+    adv = state_advancer(sysder, tolerance=tolerance)
+
+    def body(y, t):
+        next_y = adv(y, t)
+        return next_y, next_y
+
+    @jax.jit
+    def integrate(y0, t):
+        return jax.lax.scan(body, y0, t)[1]
+
+    return integrate
