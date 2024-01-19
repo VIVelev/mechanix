@@ -279,8 +279,9 @@ def Lagrangian_to_state_derivative(L: StateFunction) -> StateFunction:
 
 
 def Lagrangian_to_energy(L: StateFunction) -> StateFunction:
-    jacL = jax.jacrev(L)
-    P = lambda x: jacL(x)[2]  # Momentum state function
+    jacL = jax.jacrev(L)  # Jacobian of the Lagrangian
+    P = lambda x: jacL(x)[2]  # Partial of the Lagrangian w.r.t.
+    # the third (index 2) component of the local tuple - i.e. velocity
 
     def f(local: State):
         _, _, v = local

@@ -13,7 +13,7 @@ from mechanix import (
 
 
 def L3rd(m, V):
-    """Lagrangian for the third particle of mass `m` moving in a
+    """Lagrangian for the third body of mass `m` moving in a
     field derived from a time-varying gravitationa potential `V`.
     """
 
@@ -117,8 +117,8 @@ def R3BPmap(J, dt, int_eps, sec_eps, *, a, m, GM0, GM1):
     return sysmap
 
 
-def section_to_state(J, y, ydot, *, energy=Jacobi):
-    j = energy(State(jnp.array(0.0), jnp.array([0.0, y]), jnp.array([0.0, ydot])))
+def section_to_state(J, y, ydot):
+    j = Jacobi(State(jnp.array(0.0), jnp.array([0.0, y]), jnp.array([0.0, ydot])))
     d = J - j
     d = jax.lax.select(d >= 0, jnp.nan, d)
 

@@ -1,17 +1,18 @@
+from functools import partial
+
 import altair as alt
+import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
 from hh import HHpotential, HHsysder, section_to_state
-from jax.experimental.ode import odeint
+
+from mechanix import odeint
 
 alt.themes.enable("fivethirtyeight")
 
-E = 1 / 8
 
-dstate = HHsysder()
-func = lambda y, t: dstate(y)
-t = jnp.linspace(0, 200, 1024)
+E = 1 / 8
 
 # Contour line
 xx, yy = np.meshgrid(np.linspace(-1, 1, 256), np.linspace(-1, 1, 256))
@@ -35,9 +36,14 @@ contour = (
 )
 
 
+dstate = HHsysder()
+t = jnp.linspace(0, 200, 1024)
+integrate = jax.jit(partial(odeint(dstate), t=t))
+
+
 def gentrajchart(E, y, py):
     y0 = section_to_state(E, y, py)
-    sol = odeint(func, y0, t)
+    sol = integrate(y0)
     xys = np.asarray(sol[1])
     traj_data = [{"t": i, "x": x, "y": y} for i, (x, y) in enumerate(xys)]
 
@@ -66,5 +72,4 @@ chart = (
     .interactive()
 )
 
-chart.save("__traj.html")
-chart.save("__traj.json")
+chart.save("trajectories-demo.json")

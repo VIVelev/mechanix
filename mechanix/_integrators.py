@@ -114,12 +114,13 @@ def semi_implicit_eulerstep(f: Callable[[State], State], y0: State, h: float) ->
 def state_stepper(
     sysder: Callable[[State], State], tolerance=5e-8
 ) -> Callable[[State, float], State]:
-    """Stepper makes a concretelly one step in time."""
+    """Stepper makes a concretely one step in time."""
     return jax.jit(partial(adaptive_rkf45step, sysder, tolerance=tolerance))
 
 
 def state_advancer(
-    sysder: Callable[[State], State], tolerance=5e-8
+    sysder: Callable[[State], State],
+    tolerance=5e-8,
 ) -> Callable[[State, float], State]:
     """Advancer advaces the state to the specified final time,
     possibly making many steps.
@@ -139,7 +140,10 @@ def state_advancer(
     return adv
 
 
-def odeint(sysder: Callable[[State], State], tolerance) -> jax.Array[State]:
+def odeint(
+    sysder: Callable[[State], State],
+    tolerance=5e-8,
+) -> Callable[[State, jax.Array], State]:
     adv = state_advancer(sysder, tolerance=tolerance)
 
     def body(y, t):

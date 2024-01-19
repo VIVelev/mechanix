@@ -5,8 +5,16 @@ import numpy as np
 from matplotlib import colors as mcolors
 from tqdm import tqdm
 
+# Utilities for computing data for and exploring
+# surface of sections (Poincare sections)
+
 
 def evolve_map(xys, sysmap, n):
+    """Compute the section points (`n` in total)
+    for the given initial conditions (`xys`)
+    and Poincare map (`sysmap`).
+    """
+
     # NOTE: Non vmap'd version is faster!
     # Maybe due to overhead of vmap?
     sysmap = jax.jit(sysmap)
@@ -23,6 +31,10 @@ def evolve_map(xys, sysmap, n):
 
 
 def explore_map(fig, sysmap, n):
+    """Interactively explore the surface of section
+    on the given figure (`fig`) for the given Poincare map (`sysmap`).
+    """
+
     ax = fig.gca()
     ax.autoscale(False)
     sysmap = jax.jit(jax.vmap(sysmap))

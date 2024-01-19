@@ -1,4 +1,3 @@
-import json
 import operator
 from collections import defaultdict
 from functools import reduce
@@ -40,9 +39,6 @@ def contour_chart(
     else:
         zs = energy(xx, yy)
 
-    data = dict(width=zs.shape[0], height=zs.shape[1], values=zs.ravel().tolist())
-    json.dump(data, open("potential-data.json", "w"))
-
     if levels is not None:
         cs = plt.contour(xx, yy, zs, levels=levels)
     else:
@@ -67,7 +63,7 @@ def contour_chart(
             color=alt.Color(label + ":Q")
             .scale(scheme="spectral", domain=[min(*levels), max(*levels)])
             .legend(None),
-            tooltip=[label + ":Q"],
+            tooltip=alt.Tooltip(label + ":Q", format=".4f"),
         )
         .properties(**properties)
         .interactive()
@@ -124,5 +120,4 @@ if __name__ == "__main__":
         axis=dict(titleColor="#ddd"),
         view=dict(stroke=None),
     )
-    ch.save("__potential.html")
-    ch.save("__potential.json")
+    ch.save("potential.json")
