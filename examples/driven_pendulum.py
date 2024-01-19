@@ -67,7 +67,7 @@ def H_pend_sysder(m, g, l, A, omega):
 
 
 def driven_pendulum_map(m, g, l, A, omega):
-    advance = state_advancer(H_pend_sysder, m, g, l, A, omega)
+    advance = state_advancer(H_pend_sysder(m, g, l, A, omega))
     map_period = (2 * np.pi) / omega
 
     def sys_map(qp):
@@ -91,7 +91,7 @@ plt.xlim(-jnp.pi, jnp.pi)
 plt.ylim(-20, 20)
 plt.xlabel(r"$\theta$")
 plt.ylabel(r"$p_{\theta}$")
-explore_map(f, driven_pendulum_map(m, g, l, A, omega), n, interactive=False)
+explore_map(f, driven_pendulum_map(m, g, l, A, omega), n)
 f.show()
 
 # Make some particular simulation

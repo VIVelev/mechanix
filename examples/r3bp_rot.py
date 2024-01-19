@@ -92,23 +92,19 @@ Ts = jnp.arange(T0, Tf, DT)
 
 # Distance to the COM of the Earth-Moon system:
 a0, a1 = get_a0_a1(a, GM0, GM1)
-print("a0, a1:", a0, a1)
 # Angular velocity of the Earth-Moon system:
 Omega = get_Omega(a, GM0, GM1)
-print("Omega:", Omega)
 
 # Initial Values
 t0 = jnp.array(T0)
 q0 = jnp.array([-a0, -0.99 * a])
 v0 = jnp.array([0.0, 0.0])
 init_local = (t0, q0, v0)
-print("q0, v0:", init_local[1], init_local[2])
 
 rotation = F2C(rot(-Omega))
 L = compose(L0(m, V(a, GM0, GM1, m)), rotation)
 dlocal = jax.jit(Lagrangian_to_state_derivative(L))
 energy = jax.jit(Lagrangian_to_energy(L))
-print("Energy:", energy(init_local))
 
 locals = odeint(lambda y, t: dlocal(y), init_local, Ts)
 energies = jax.vmap(energy)(locals)
