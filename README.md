@@ -6,5 +6,5 @@ by Sussman and Wisdom, and implemented in [JAX](https://jax.readthedocs.io/en/la
 awesome function transformations/compositions!
 
 To get a quick overview, checkout the [examples/](examples/) folder (for instance the simple [pendulum example](examples/pendulum.py)),
-or visit [In search of Hidden Conservation Laws](https://vivelev.xyz/hidden-laws)
+or visit [In search of Hidden Conservation Laws](https://vivelev.xyz/hiddenLaws)
 to see a cool demo of what the library is capable of!
